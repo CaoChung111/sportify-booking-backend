@@ -74,7 +74,7 @@ public class Booking extends PanacheEntity {
     public static boolean hasConflict(Long fieldId, LocalDate date, LocalTime start, LocalTime end) {
         long count = count(
             "fieldId = ?1 AND bookingDate = ?2 AND status != ?3 " +
-            "AND ((startTime < ?5 AND endTime > ?4))",
+            "AND (startTime < ?5 AND endTime > ?4)",
             fieldId, date, BookingStatus.CANCELLED, start, end
         );
         return count > 0;

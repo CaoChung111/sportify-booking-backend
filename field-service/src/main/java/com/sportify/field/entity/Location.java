@@ -14,7 +14,7 @@ public class Location extends PanacheEntity {
     @Column(nullable = false, length = 100)
     public String name;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     public String address;
 
     @Column(nullable = false, length = 50)

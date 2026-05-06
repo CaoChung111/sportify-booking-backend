@@ -1,5 +1,6 @@
 package com.sportify.payment.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -13,7 +14,7 @@ public class PaymentDto {
         @NotNull
         public Long bookingId;
 
-        @NotNull
+        @NotBlank
         public String paymentMethod; // CASH, VNPAY, MOMO
     }
 
@@ -38,4 +39,14 @@ public class PaymentDto {
         public String message;
         public String transId;
     }
+
+    // ── Internal DTO from booking-service ────────────────────────────────────
+    public record BookingDetail(
+            Long id,
+            Long userId,
+            Long fieldId,
+            String fieldName,
+            BigDecimal totalPrice,
+            String status
+    ) {}
 }

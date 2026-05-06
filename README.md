@@ -12,7 +12,7 @@ Client → API Gateway (8080) → [Keycloak JWT validation]
                              └── payment-service (8084) → payment_db
 ```
 
-## Project Structure
+## Project Structurehttps://github.com/CaoChung111/sportify-booking-backend.git
 
 ```
 backend/

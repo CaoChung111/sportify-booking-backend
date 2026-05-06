@@ -3,6 +3,7 @@ package com.sportify.booking.resource;
 import com.sportify.booking.dto.BookingDto;
 import com.sportify.booking.service.BookingService;
 import com.sportify.common.dto.ApiResponse;
+import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -24,8 +25,21 @@ public class BookingResource {
     @Inject JsonWebToken jwt;
 
     private Long currentUserId() {
-        // Extract userId from JWT claims
-        return Long.valueOf(jwt.getClaim("userId").toString());
+        // Dev mode: OIDC disabled, no JWT → dùng mock userId=1
+        try {
+            Object userIdClaim = jwt.getClaim("userId");
+            if (userIdClaim != null) {
+                return Long.valueOf(userIdClaim.toString());
+            }
+            // Fallback to sub if no userId claim
+            String sub = jwt.getSubject();
+            if (sub != null && !sub.isBlank()) {
+                return 1L; // map to userId=1 for dev
+            }
+        } catch (Exception e) {
+            // Dev mode: JWT not available
+        }
+        return 1L; // dev fallback
     }
 
     @POST
@@ -58,5 +72,30 @@ public class BookingResource {
     public Response cancel(@PathParam("id") Long id) {
         bookingService.cancel(id, currentUserId());
         return Response.ok(ApiResponse.success("Booking cancelled", null)).build();
+    }
+
+    /**
+     * Internal endpoint — called by payment-service to confirm booking after payment.
+     * In a real system this would use mTLS or an internal network only.
+     */
+    @PATCH
+    @Path("/{id}/confirm")
+    @PermitAll
+    @Operation(summary = "Confirm booking after payment (internal)")
+    public Response confirm(@PathParam("id") Long id) {
+        bookingService.confirm(id);
+        return Response.ok(ApiResponse.success("Booking confirmed", null)).build();
+    }
+
+    /**
+     * Internal: get booking by id without user check (for payment-service)
+     */
+    @GET
+    @Path("/{id}/internal")
+    @PermitAll
+    @Operation(summary = "Get booking detail (internal use)")
+    public Response getByIdInternal(@PathParam("id") Long id) {
+        BookingDto.BookingResponse booking = bookingService.getByIdInternal(id);
+        return Response.ok(ApiResponse.success(booking)).build();
     }
 }
