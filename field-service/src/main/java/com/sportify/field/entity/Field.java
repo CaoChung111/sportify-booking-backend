@@ -1,0 +1,42 @@
+package com.sportify.field.entity;
+
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import java.util.List;
+
+@Entity
+@Table(name = "fields")
+@Getter @Setter @NoArgsConstructor
+public class Field extends PanacheEntity {
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", nullable = false)
+    public Location location;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "field_type_id", nullable = false)
+    public FieldType fieldType;
+
+    @Column(nullable = false, length = 50)
+    public String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    public Status status = Status.AVAILABLE;
+
+    public enum Status {
+        AVAILABLE, MAINTENANCE
+    }
+
+    // ── Finders ────────────────────────────────────────────────────────────
+    public static List<Field> findByLocation(Long locationId) {
+        return list("location.id", locationId);
+    }
+
+    public static List<Field> findAvailableByLocation(Long locationId) {
+        return list("location.id = ?1 and status = ?2", locationId, Status.AVAILABLE);
+    }
+}

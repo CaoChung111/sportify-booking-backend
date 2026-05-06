@@ -1,0 +1,3 @@
+com\sportify\common\exception\GlobalExceptionMapper.class
+com\sportify\common\exception\ServiceException.class
+com\sportify\common\dto\ApiResponse.class

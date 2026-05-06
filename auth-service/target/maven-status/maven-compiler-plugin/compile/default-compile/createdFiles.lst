@@ -1,0 +1,9 @@
+com\sportify\auth\service\AuthService.class
+com\sportify\auth\dto\AuthDto$TokenResponse.class
+com\sportify\auth\resource\AuthResource.class
+com\sportify\auth\dto\AuthDto$LoginRequest.class
+com\sportify\auth\dto\AuthDto$UserProfileResponse.class
+com\sportify\auth\dto\AuthDto.class
+com\sportify\auth\dto\AuthDto$RegisterRequest.class
+com\sportify\auth\entity\User.class
+com\sportify\auth\entity\User$Status.class
