@@ -4,6 +4,7 @@ import com.sportify.auth.dto.AuthDto;
 import com.sportify.auth.entity.User;
 import com.sportify.common.exception.ServiceException;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
@@ -12,14 +13,11 @@ import jakarta.ws.rs.core.Form;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.resteasy.reactive.ClientWebApplicationException;
 import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 @ApplicationScoped
@@ -31,14 +29,11 @@ public class AuthService {
     @ConfigProperty(name = "quarkus.keycloak.admin-client.realm")
     String realm;
 
-    @ConfigProperty(name = "quarkus.keycloak.admin-client.client-id")
-    String clientId;
-
-    @ConfigProperty(name = "quarkus.keycloak.admin-client.client-secret")
-    String clientSecret;
-
     @ConfigProperty(name = "keycloak.public-client-id", defaultValue = "sportify-app")
     String publicClientId;
+
+    @Inject
+    Keycloak keycloakAdmin;
 
     /**
      * Đăng ký tài khoản mới:
@@ -51,9 +46,6 @@ public class AuthService {
         if (User.findByEmail(request.email) != null) {
             throw ServiceException.conflict("Email already registered: " + request.email);
         }
-
-        // Build Keycloak admin client
-        Keycloak keycloakAdmin = buildAdminClient();
 
         // Build user representation
         CredentialRepresentation credential = new CredentialRepresentation();
@@ -70,13 +62,17 @@ public class AuthService {
         kcUser.setEmailVerified(true);
         kcUser.setCredentials(Collections.singletonList(credential));
 
-        // Create user in Keycloak
+        // Create user in Keycloak bằng đối tượng đã được Inject
         Response kcResponse = keycloakAdmin.realm(realm).users().create(kcUser);
+
         if (kcResponse.getStatus() == 409) {
             throw ServiceException.conflict("Username already exists on Keycloak: " + request.username);
         }
+
         if (kcResponse.getStatus() != 201) {
-            throw ServiceException.badRequest("Keycloak user creation failed: " + kcResponse.getStatus());
+            // ĐỌC LỖI CHI TIẾT TỪ KEYCLOAK ĐỂ BIẾT TẠI SAO BỊ 400
+            String errorDetail = kcResponse.readEntity(String.class);
+            throw ServiceException.badRequest("Keycloak user creation failed: 400 - Chi tiết: " + errorDetail);
         }
 
         // Extract Keycloak user ID from Location header
@@ -92,8 +88,6 @@ public class AuthService {
         user.keycloakId = keycloakId;
         user.status = User.Status.ACTIVE;
         user.persist();
-
-        keycloakAdmin.close();
 
         return toProfileResponse(user);
     }
@@ -117,7 +111,9 @@ public class AuthService {
                     .post(Entity.form(form));
 
             if (response.getStatus() != 200) {
-                throw ServiceException.badRequest("Invalid username or password");
+                // ĐỌC LỖI CHI TIẾT TỪ KEYCLOAK
+                String errorDetail = response.readEntity(String.class);
+                throw ServiceException.badRequest("Login failed: " + response.getStatus() + " - Chi tiết: " + errorDetail);
             }
 
             @SuppressWarnings("unchecked")
@@ -184,16 +180,6 @@ public class AuthService {
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
-
-    private Keycloak buildAdminClient() {
-        return KeycloakBuilder.builder()
-                .serverUrl(keycloakServerUrl)
-                .realm("master")
-                .clientId("admin-cli")
-                .username("admin")
-                .password("admin123")
-                .build();
-    }
 
     private AuthDto.TokenResponse mapTokenResponse(Map<String, Object> body) {
         AuthDto.TokenResponse token = new AuthDto.TokenResponse();
