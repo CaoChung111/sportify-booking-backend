@@ -19,7 +19,7 @@ public class Booking extends PanacheEntity {
 
     /**
      * ID reference — không dùng @ManyToOne cross-service.
-     * Lưu thêm snapshot để tránh phụ thuộc vào field-service khi đọc.
+     * Mỗi service có DB riêng, không có FK xuyên service.
      */
     @Column(name = "user_id", nullable = false)
     public Long userId;
@@ -27,14 +27,14 @@ public class Booking extends PanacheEntity {
     @Column(name = "field_id", nullable = false)
     public Long fieldId;
 
-    // ── Snapshot tại thời điểm đặt sân ───────────────────────────────────
+    // ── Snapshot tại thời điểm đặt sân (tránh phụ thuộc field-service khi đọc)
     @Column(name = "field_name", nullable = false, length = 100)
     public String fieldName;
 
     @Column(name = "location_name", nullable = false, length = 100)
     public String locationName;
 
-    // ── Booking info ───────────────────────────────────────────────────────
+    // ── Booking info ───────────────────────────────────────────────────────────
     @Column(name = "booking_date", nullable = false)
     public LocalDate bookingDate;
 
@@ -51,30 +51,63 @@ public class Booking extends PanacheEntity {
     @Column(nullable = false)
     public BookingStatus status = BookingStatus.PENDING;
 
+    /** Ghi chú của khách */
+    @Column(name = "note", columnDefinition = "TEXT")
+    public String note;
+
+    /**
+     * Optimistic locking — phòng tránh 2 request đặt cùng slot đồng thời.
+     * Nếu 2 transaction cùng đọc version=0 → 1 sẽ thắng, 1 sẽ bị OptimisticLockException.
+     */
     @Version
-    public Integer version; // Optimistic locking — tránh double-booking
+    public Integer version;
 
     @Column(name = "created_at", updatable = false)
     public LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    public LocalDateTime updatedAt;
 
     @PrePersist
     void prePersist() {
         this.createdAt = LocalDateTime.now();
     }
 
-    public enum BookingStatus {
-        PENDING, CONFIRMED, COMPLETED, CANCELLED
+    @PreUpdate
+    void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
-    // ── Finders ────────────────────────────────────────────────────────────
+    public enum BookingStatus {
+        PENDING,    // Đặt chỗ, chờ thanh toán
+        CONFIRMED,  // Đã thanh toán, chờ chơi
+        COMPLETED,  // Đã chơi xong
+        CANCELLED   // Đã huỷ
+    }
+
+    // ── Finders ────────────────────────────────────────────────────────────────
+
     public static List<Booking> findByUserId(Long userId) {
         return list("userId = ?1 ORDER BY createdAt DESC", userId);
     }
 
+    public static List<Booking> findByFieldId(Long fieldId) {
+        return list("fieldId = ?1 ORDER BY bookingDate DESC, startTime ASC", fieldId);
+    }
+
+    public static List<Booking> findByStatus(String status) {
+        return list("status = ?1 ORDER BY createdAt DESC", BookingStatus.valueOf(status));
+    }
+
+    /**
+     * Kiểm tra xung đột lịch đặt (Double Booking Prevention).
+     * Điều kiện overlap: startA < endB AND endA > startB
+     * Chỉ tính các booking chưa bị huỷ.
+     */
     public static boolean hasConflict(Long fieldId, LocalDate date, LocalTime start, LocalTime end) {
         long count = count(
             "fieldId = ?1 AND bookingDate = ?2 AND status != ?3 " +
-            "AND (startTime < ?5 AND endTime > ?4)",
+            "AND startTime < ?5 AND endTime > ?4",
             fieldId, date, BookingStatus.CANCELLED, start, end
         );
         return count > 0;

@@ -35,19 +35,23 @@ public class AuthService {
     @Inject
     Keycloak keycloakAdmin;
 
+    // ── Register ──────────────────────────────────────────────────────────────
+
     /**
      * Đăng ký tài khoản mới:
-     * 1. Tạo user trên Keycloak
-     * 2. Lưu bản ghi User vào database local
+     * 1. Kiểm tra trùng email trong DB nội bộ
+     * 2. Tạo user trên Keycloak (Admin API)
+     * 3. Lấy Keycloak ID từ Location header
+     * 4. Lưu bản ghi User vào database local
      */
     @Transactional
     public AuthDto.UserProfileResponse register(AuthDto.RegisterRequest request) {
-        // Check duplicate in local DB
+        // 1. Kiểm tra trùng email trong local DB
         if (User.findByEmail(request.email) != null) {
             throw ServiceException.conflict("Email already registered: " + request.email);
         }
 
-        // Build user representation
+        // 2. Build credential và user representation cho Keycloak
         CredentialRepresentation credential = new CredentialRepresentation();
         credential.setTemporary(false);
         credential.setType(CredentialRepresentation.PASSWORD);
@@ -62,38 +66,40 @@ public class AuthService {
         kcUser.setEmailVerified(true);
         kcUser.setCredentials(Collections.singletonList(credential));
 
-        // Create user in Keycloak bằng đối tượng đã được Inject
+        // 3. Gọi Keycloak Admin API tạo user
         Response kcResponse = keycloakAdmin.realm(realm).users().create(kcUser);
 
         if (kcResponse.getStatus() == 409) {
             throw ServiceException.conflict("Username already exists on Keycloak: " + request.username);
         }
-
         if (kcResponse.getStatus() != 201) {
-            // ĐỌC LỖI CHI TIẾT TỪ KEYCLOAK ĐỂ BIẾT TẠI SAO BỊ 400
             String errorDetail = kcResponse.readEntity(String.class);
-            throw ServiceException.badRequest("Keycloak user creation failed: 400 - Chi tiết: " + errorDetail);
+            throw ServiceException.badRequest("Keycloak user creation failed: " + errorDetail);
         }
 
-        // Extract Keycloak user ID from Location header
+        // 4. Lấy Keycloak ID từ Location header: .../users/{uuid}
         String location = kcResponse.getHeaderString("Location");
         String keycloakId = location.substring(location.lastIndexOf('/') + 1);
 
-        // Persist local profile
+        // 5. Lưu hồ sơ vào local DB
         User user = new User();
         user.username = request.username;
-        user.email = request.email;
-        user.phone = request.phone != null ? request.phone : "";
+        user.email    = request.email;
+        user.phone    = request.phone != null ? request.phone : "";
         user.fullName = request.fullName;
         user.keycloakId = keycloakId;
-        user.status = User.Status.ACTIVE;
+        user.status   = User.Status.ACTIVE;
         user.persist();
 
         return toProfileResponse(user);
     }
 
+    // ── Login ─────────────────────────────────────────────────────────────────
+
     /**
-     * Đăng nhập: gọi Keycloak Token endpoint (Password Grant)
+     * Đăng nhập:
+     * Gọi Keycloak Token endpoint bằng OIDC Password Grant
+     * Trả về Access Token + Refresh Token
      */
     public AuthDto.TokenResponse login(AuthDto.LoginRequest request) {
         String tokenUrl = keycloakServerUrl + "/realms/" + realm + "/protocol/openid-connect/token";
@@ -111,9 +117,8 @@ public class AuthService {
                     .post(Entity.form(form));
 
             if (response.getStatus() != 200) {
-                // ĐỌC LỖI CHI TIẾT TỪ KEYCLOAK
                 String errorDetail = response.readEntity(String.class);
-                throw ServiceException.badRequest("Login failed: " + response.getStatus() + " - Chi tiết: " + errorDetail);
+                throw ServiceException.badRequest("Login failed: " + response.getStatus() + " — " + errorDetail);
             }
 
             @SuppressWarnings("unchecked")
@@ -124,16 +129,20 @@ public class AuthService {
         }
     }
 
+    // ── Refresh Token ─────────────────────────────────────────────────────────
+
     /**
-     * Refresh access token
+     * Làm mới Access Token:
+     * Gọi Keycloak Token endpoint với grant_type=refresh_token
+     * Nhận refreshToken từ request body (bảo mật hơn QueryParam)
      */
-    public AuthDto.TokenResponse refreshToken(String refreshToken) {
+    public AuthDto.TokenResponse refreshToken(AuthDto.RefreshTokenRequest request) {
         String tokenUrl = keycloakServerUrl + "/realms/" + realm + "/protocol/openid-connect/token";
 
         Form form = new Form()
                 .param("grant_type", "refresh_token")
                 .param("client_id", publicClientId)
-                .param("refresh_token", refreshToken);
+                .param("refresh_token", request.refreshToken);
 
         Client httpClient = ClientBuilder.newClient();
         try {
@@ -153,52 +162,72 @@ public class AuthService {
         }
     }
 
+    // ── Get Profile ───────────────────────────────────────────────────────────
+
     /**
-     * Lấy profile user từ keycloakId (sub claim)
+     * Lấy thông tin profile của user đang đăng nhập.
+     * keycloakId được lấy từ JWT sub claim (inject qua JsonWebToken).
      */
     public AuthDto.UserProfileResponse getProfile(String keycloakId) {
         User user = User.findByKeycloakId(keycloakId);
         if (user == null) {
-            throw ServiceException.notFound("User", 0L);
+            throw ServiceException.notFound("User with keycloak_id", 0L);
         }
         return toProfileResponse(user);
     }
 
+    // ── Update Profile ────────────────────────────────────────────────────────
+
     /**
-     * Cập nhật profile user
+     * Cập nhật thông tin profile:
+     * Chỉ cho phép sửa fullName và phone.
+     * username và email KHÔNG được phép thay đổi qua API này.
      */
     @Transactional
-    public AuthDto.UserProfileResponse updateProfile(String keycloakId, AuthDto.RegisterRequest request) {
+    public AuthDto.UserProfileResponse updateProfile(String keycloakId, AuthDto.UpdateProfileRequest request) {
         User user = User.findByKeycloakId(keycloakId);
         if (user == null) {
-            throw ServiceException.notFound("User", 0L);
+            throw ServiceException.notFound("User with keycloak_id", 0L);
         }
-        if (request.fullName != null) user.fullName = request.fullName;
-        if (request.phone != null) user.phone = request.phone;
+
+        // Chỉ update những trường được phép
+        if (request.fullName != null && !request.fullName.isBlank()) {
+            user.fullName = request.fullName;
+        }
+        if (request.phone != null && !request.phone.isBlank()) {
+            // Kiểm tra phone không bị trùng với user khác
+            User existingByPhone = User.find("phone = ?1 and id != ?2", request.phone, user.id).firstResult();
+            if (existingByPhone != null) {
+                throw ServiceException.conflict("Phone number already used by another account");
+            }
+            user.phone = request.phone;
+        }
+
         user.persist();
         return toProfileResponse(user);
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private AuthDto.TokenResponse mapTokenResponse(Map<String, Object> body) {
         AuthDto.TokenResponse token = new AuthDto.TokenResponse();
-        token.accessToken = (String) body.get("access_token");
+        token.accessToken  = (String) body.get("access_token");
         token.refreshToken = (String) body.get("refresh_token");
-        Object expiresIn = body.get("expires_in");
-        token.expiresIn = expiresIn instanceof Number ? ((Number) expiresIn).longValue() : 300L;
-        token.tokenType = "Bearer";
+        Object expiresIn   = body.get("expires_in");
+        token.expiresIn    = expiresIn instanceof Number ? ((Number) expiresIn).longValue() : 300L;
+        token.tokenType    = "Bearer";
         return token;
     }
 
     private AuthDto.UserProfileResponse toProfileResponse(User user) {
         AuthDto.UserProfileResponse res = new AuthDto.UserProfileResponse();
-        res.id = user.id;
-        res.username = user.username;
-        res.email = user.email;
-        res.fullName = user.fullName;
-        res.phone = user.phone;
-        res.status = user.status.name();
+        res.id        = user.id;
+        res.username  = user.username;
+        res.email     = user.email;
+        res.fullName  = user.fullName;
+        res.phone     = user.phone;
+        res.status    = user.status.name();
+        res.createdAt = user.createdAt != null ? user.createdAt.toString() : null;
         return res;
     }
 }
