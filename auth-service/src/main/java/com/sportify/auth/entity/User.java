@@ -21,7 +21,7 @@ public class User extends PanacheEntity {
     @Column(nullable = false, unique = true, length = 100)
     public String email;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(unique = true, length = 20)
     public String phone;
 
     @Column(name = "full_name", length = 100)

@@ -13,6 +13,7 @@ public class AuthDto {
     @Data
     public static class RegisterRequest {
         @NotBlank(message = "Username is required")
+
         @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
         public String username;
 

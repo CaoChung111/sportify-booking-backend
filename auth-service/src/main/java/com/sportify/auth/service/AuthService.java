@@ -46,6 +46,9 @@ public class AuthService {
      */
     @Transactional
     public AuthDto.UserProfileResponse register(AuthDto.RegisterRequest request) {
+        if (request.phone != null && User.find("phone", request.phone).firstResult() != null) {
+            throw ServiceException.conflict("Phone number already registered");
+        }
         // 1. Kiểm tra trùng email trong local DB
         if (User.findByEmail(request.email) != null) {
             throw ServiceException.conflict("Email already registered: " + request.email);
@@ -85,7 +88,7 @@ public class AuthService {
         User user = new User();
         user.username = request.username;
         user.email    = request.email;
-        user.phone    = request.phone != null ? request.phone : "";
+        user.phone = request.phone;
         user.fullName = request.fullName;
         user.keycloakId = keycloakId;
         user.status   = User.Status.ACTIVE;

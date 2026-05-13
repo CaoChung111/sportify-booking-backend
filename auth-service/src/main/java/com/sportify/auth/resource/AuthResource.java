@@ -3,6 +3,7 @@ package com.sportify.auth.resource;
 import com.sportify.auth.dto.AuthDto;
 import com.sportify.auth.service.AuthService;
 import com.sportify.common.dto.ApiResponse;
+import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -109,6 +110,7 @@ public class AuthResource {
     @APIResponse(responseCode = "401", description = "Chưa xác thực")
     @APIResponse(responseCode = "404", description = "Không tìm thấy profile")
     public Response getProfile() {
+        System.out.println(">>> KEYCLOAK ID NHẬN ĐƯỢC: " + jwt.getSubject());
         String keycloakId = jwt.getSubject();
         AuthDto.UserProfileResponse profile = authService.getProfile(keycloakId);
         return Response.ok(ApiResponse.success(profile)).build();
