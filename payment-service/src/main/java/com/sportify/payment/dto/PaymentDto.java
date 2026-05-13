@@ -18,14 +18,13 @@ public class PaymentDto {
         public Long bookingId;
 
         /**
-         * Phương thức thanh toán: CASH | VNPAY | MOMO
+         * Phương thức thanh toán: CASH | VNPAY
          * - CASH: Admin xác nhận thủ công
          * - VNPAY: Hệ thống tạo URL redirect sang VNPAY
-         * - MOMO: Hệ thống tạo URL redirect sang MoMo
          */
         @NotBlank(message = "paymentMethod is required")
-        @Pattern(regexp = "^(CASH|VNPAY|MOMO)$",
-                 message = "paymentMethod must be CASH, VNPAY, or MOMO")
+        @Pattern(regexp = "^(CASH|VNPAY)$",
+                 message = "paymentMethod must be CASH or VNPAY")
         public String paymentMethod;
     }
 
@@ -40,7 +39,7 @@ public class PaymentDto {
         public String        paymentMethod;
         public String        paymentStatus;
         public String        txnRef;
-        /** URL redirect sang trang thanh toán (chỉ có với VNPAY/MoMo) */
+        /** URL redirect sang trang thanh toán (chỉ có với VNPAY) */
         public String        paymentUrl;
         public LocalDateTime createdAt;
         public LocalDateTime updatedAt;
@@ -56,18 +55,6 @@ public class PaymentDto {
         public String vnpBankCode;
         public String vnpAmount;
         public String vnpSecureHash;
-    }
-
-    // ── MoMo Callback (từ MoMo gọi lại) ──────────────────────────────────────
-
-    @Data
-    public static class MomoCallbackRequest {
-        public String orderId;       // txnRef của hệ thống
-        public String requestId;
-        public int    resultCode;    // 0 = success
-        public String message;
-        public String transId;       // ID giao dịch của MoMo
-        public String signature;     // để verify
     }
 
     // ── CASH: Admin xác nhận thanh toán tiền mặt ──────────────────────────────
