@@ -10,6 +10,7 @@ import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -107,6 +108,19 @@ public class BookingService {
 
     public List<BookingDto.BookingResponse> getMyBookings(Long userId) {
         return Booking.findByUserId(userId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<BookingDto.BookingResponse> getBookingsByFieldAndDate(Long fieldId, LocalDate date) {
+        if (fieldId == null) {
+            throw ServiceException.badRequest("fieldId is required");
+        }
+        if (date == null) {
+            throw ServiceException.badRequest("date is required");
+        }
+
+        return Booking.findByFieldIdAndDate(fieldId, date).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }

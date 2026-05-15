@@ -95,6 +95,12 @@ public class Booking extends PanacheEntity {
         return list("fieldId = ?1 ORDER BY bookingDate DESC, startTime ASC", fieldId);
     }
 
+    public static List<Booking> findByFieldIdAndDate(Long fieldId, LocalDate date) {
+        return list(
+                "fieldId = ?1 AND bookingDate = ?2 AND status != ?3 ORDER BY startTime ASC",
+                fieldId, date, BookingStatus.CANCELLED);
+    }
+
     public static List<Booking> findByStatus(String status) {
         return list("status = ?1 ORDER BY createdAt DESC", BookingStatus.valueOf(status));
     }

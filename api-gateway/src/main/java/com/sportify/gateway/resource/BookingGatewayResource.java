@@ -35,6 +35,18 @@ public class BookingGatewayResource {
     }
 
     @GET
+    @Path("/field/{fieldId}")
+    @Operation(summary = "Lấy danh sách booking của một sân theo ngày")
+    public Response getByFieldAndDate(@PathParam("fieldId") Long fieldId,
+                                      @QueryParam("date") String date,
+                                      @Context HttpHeaders headers) {
+        return bookingClient.getByFieldAndDate(
+                fieldId,
+                date,
+                headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
+    @GET
     @Path("/{id}")
     @Operation(summary = "Lấy chi tiết đơn đặt sân theo ID")
     public Response getById(@PathParam("id") Long id, @Context HttpHeaders headers) {

@@ -14,6 +14,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Path("/api/v1/bookings")
@@ -77,6 +78,21 @@ public class BookingResource {
     @APIResponse(responseCode = "200", description = "Danh sách booking")
     public Response getMyBookings() {
         List<BookingDto.BookingResponse> bookings = bookingService.getMyBookings(currentUserId());
+        return Response.ok(ApiResponse.success(bookings)).build();
+    }
+
+    /**
+     * GET /api/v1/bookings/field/{fieldId}?date=yyyy-MM-dd
+     * Lấy danh sách booking chưa huỷ của một sân trong một ngày.
+     */
+    @GET
+    @Path("/field/{fieldId}")
+    @Operation(summary = "Lấy danh sách booking của một sân theo ngày")
+    @APIResponse(responseCode = "200", description = "Danh sách booking của sân trong ngày")
+    @APIResponse(responseCode = "400", description = "Thiếu hoặc sai định dạng date")
+    public Response getByFieldAndDate(@PathParam("fieldId") Long fieldId,
+                                      @QueryParam("date") LocalDate date) {
+        List<BookingDto.BookingResponse> bookings = bookingService.getBookingsByFieldAndDate(fieldId, date);
         return Response.ok(ApiResponse.success(bookings)).build();
     }
 

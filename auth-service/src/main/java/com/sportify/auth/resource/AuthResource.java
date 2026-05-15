@@ -6,6 +6,10 @@ import com.sportify.common.dto.ApiResponse;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonString;
+import jakarta.json.JsonValue;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -17,6 +21,12 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 
 @Path("/api/v1/auth")
 @Produces(MediaType.APPLICATION_JSON)
@@ -112,7 +122,7 @@ public class AuthResource {
     public Response getProfile() {
         System.out.println(">>> KEYCLOAK ID NHẬN ĐƯỢC: " + jwt.getSubject());
         String keycloakId = jwt.getSubject();
-        AuthDto.UserProfileResponse profile = authService.getProfile(keycloakId);
+        AuthDto.UserProfileResponse profile = authService.getProfile(keycloakId, getKeycloakRoles());
         return Response.ok(ApiResponse.success(profile)).build();
     }
 
@@ -138,5 +148,46 @@ public class AuthResource {
         String keycloakId = jwt.getSubject();
         AuthDto.UserProfileResponse profile = authService.updateProfile(keycloakId, request);
         return Response.ok(ApiResponse.success("Profile updated successfully", profile)).build();
+    }
+
+    private Set<String> getKeycloakRoles() {
+        Object realmAccessClaim = jwt.getClaim("realm_access");
+        if (realmAccessClaim instanceof Map<?, ?> realmAccess) {
+            Object rolesClaim = realmAccess.get("roles");
+            Set<String> roles = extractRoles(rolesClaim);
+            if (!roles.isEmpty()) {
+                return roles;
+            }
+        }
+
+        if (realmAccessClaim instanceof JsonObject realmAccess) {
+            Set<String> roles = extractRoles(realmAccess.getJsonArray("roles"));
+            if (!roles.isEmpty()) {
+                return roles;
+            }
+        }
+
+        Set<String> groups = jwt.getGroups();
+        return groups != null ? groups : Collections.emptySet();
+    }
+
+    private Set<String> extractRoles(Object rolesClaim) {
+        Set<String> result = new LinkedHashSet<>();
+        if (rolesClaim instanceof Collection<?> roles) {
+            for (Object role : roles) {
+                if (role instanceof String roleName) {
+                    result.add(roleName);
+                } else if (role instanceof JsonString roleName) {
+                    result.add(roleName.getString());
+                }
+            }
+        } else if (rolesClaim instanceof JsonArray roles) {
+            for (JsonValue role : roles) {
+                if (role instanceof JsonString roleName) {
+                    result.add(roleName.getString());
+                }
+            }
+        }
+        return result;
     }
 }
