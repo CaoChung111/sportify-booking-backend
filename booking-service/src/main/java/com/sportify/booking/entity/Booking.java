@@ -17,6 +17,9 @@ import java.util.List;
 @Getter @Setter @NoArgsConstructor
 public class Booking extends PanacheEntity {
 
+    // Thời gian (phút) mà một đơn PENDING được coi là hợp lệ trước khi hết hạn
+    public static final int PENDING_EXPIRATION_MINUTES = 15;
+
     /**
      * ID reference — không dùng @ManyToOne cross-service.
      * Mỗi service có DB riêng, không có FK xuyên service.
@@ -128,14 +131,24 @@ public class Booking extends PanacheEntity {
 
     /**
      * Kiểm tra xung đột lịch đặt (Double Booking Prevention).
-     * Điều kiện overlap: startA < endB AND endA > startB
-     * Chỉ tính các booking chưa bị huỷ.
+     * Một khung giờ bị coi là đã có người đặt nếu tồn tại một booking khác (B)
+     * thoả mãn ĐỒNG THỜI 2 điều kiện:
+     * 1. Khung giờ của B chồng chéo với khung giờ đang xét.
+     * 2. Trạng thái của B là:
+     *    - CONFIRMED hoặc COMPLETED
+     *    - HOẶC là PENDING và chưa hết hạn (được tạo trong vòng 15 phút gần nhất).
      */
     public static boolean hasConflict(Long fieldId, LocalDate date, LocalTime start, LocalTime end) {
+        LocalDateTime pendingCutoff = LocalDateTime.now().minusMinutes(PENDING_EXPIRATION_MINUTES);
+
         long count = count(
-            "fieldId = ?1 AND bookingDate = ?2 AND status != ?3 " +
-            "AND startTime < ?5 AND endTime > ?4",
-            fieldId, date, BookingStatus.CANCELLED, start, end
+            "fieldId = ?1 AND bookingDate = ?2 " +
+            "AND (startTime < ?4 AND endTime > ?3) " + // Điều kiện overlap
+            "AND ( " +
+            "  status = 'CONFIRMED' OR status = 'COMPLETED' OR " +
+            "  (status = 'PENDING' AND createdAt >= ?5) " +
+            ")",
+            fieldId, date, start, end, pendingCutoff
         );
         return count > 0;
     }

@@ -1,7 +1,6 @@
 package com.sportify.booking.dto;
 
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -9,7 +8,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 
 public class BookingDto {
 
@@ -21,7 +19,7 @@ public class BookingDto {
         public Long fieldId;
 
         @NotNull(message = "bookingDate is required")
-        @Future(message = "Booking date must be in the future")
+        @FutureOrPresent(message = "Booking date must be today or in the future")
         public LocalDate bookingDate;
 
         @NotNull(message = "startTime is required")
