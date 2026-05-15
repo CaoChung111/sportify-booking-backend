@@ -29,7 +29,6 @@ public class BookingService {
     @Inject
     @RestClient
     PaymentServiceClient paymentServiceClient;
-
     // ── Check Availability ───────────────────────────────────────────────────
 
     /**
@@ -93,8 +92,11 @@ public class BookingService {
 
         // Bước 4 — Pessimistic Lock + Kiểm tra xung đột lịch (Double Booking)
         Booking.lockSlot(request.fieldId, request.bookingDate);
-        checkSlotAvailability(request.fieldId, request.bookingDate, request.startTime, request.endTime);
-
+        if (Booking.hasConflict(request.fieldId, request.bookingDate, request.startTime, request.endTime)) {
+            throw ServiceException.conflict(
+                    "Time slot " + request.startTime + "–" + request.endTime +
+                    " on " + request.bookingDate + " is already booked for this field");
+        }
 
         // Bước 5: Tính giá
         String dateStr  = request.bookingDate.toString();
