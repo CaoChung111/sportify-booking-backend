@@ -25,7 +25,20 @@ public class PaymentGatewayResource {
     @POST
     @Operation(summary = "Khởi tạo thanh toán cho booking (VNPAY | MoMo | CASH)")
     public Response initiate(@Context HttpHeaders headers, Object body) {
-        return paymentClient.initiate(headers.getHeaderString(HttpHeaders.AUTHORIZATION), body);
+        String authHeader = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
+        String token  = authHeader.substring(7);
+        try {
+            return paymentClient.initiate(token, body);
+
+        } catch (org.jboss.resteasy.reactive.ClientWebApplicationException e) {
+            String errorBody = e.getResponse().readEntity(String.class);
+            System.out.println("==== LỖI TỪ PAYMENT SERVICE ====");
+            System.out.println("Mã lỗi: " + e.getResponse().getStatus());
+            System.out.println("Chi tiết: " + errorBody);
+            System.out.println("================================");
+            throw e;
+        }
+
     }
 
     @GET
