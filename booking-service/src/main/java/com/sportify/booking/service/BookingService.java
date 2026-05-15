@@ -26,7 +26,7 @@ public class BookingService {
     /**
      * Luồng tạo booking (Real-time):
      *
-     * 1. Validate input: endTime > startTime
+     * 1. Validate input: endTime > startTime, booking time is in the future
      * 2. Gọi field-service → kiểm tra sân tồn tại & lấy snapshot
      * 3. Kiểm tra sân đang AVAILABLE (không bảo trì)
      * 4. Kiểm tra xung đột lịch trong DB nội bộ (Double Booking Prevention)
@@ -42,6 +42,10 @@ public class BookingService {
         if (request.bookingDate == null) {
             throw ServiceException.badRequest("bookingDate is required");
         }
+        // **LOGIC MỚI:** Nếu đặt cho ngày hôm nay, giờ bắt đầu phải ở trong tương lai
+        if (request.bookingDate.isEqual(LocalDate.now()) && request.startTime.isBefore(LocalTime.now())) {
+            throw ServiceException.badRequest("Cannot book a time slot that has already passed today");
+        }
 
         // Bước 2: Lấy thông tin sân từ field-service
         var fieldResponse = fieldServiceClient.getField(request.fieldId);
@@ -51,19 +55,11 @@ public class BookingService {
         var fieldDetail = fieldResponse.getData();
 
         // Bước 3: Kiểm tra trạng thái sân
-        if (!"AVAILABLE".equalsIgnoreCase(fieldDetail.status())) {
+        // Gọi API mới của field-service để kiểm tra trạng thái vận hành
+        var availResp = fieldServiceClient.checkAvailability(request.fieldId);
+        if (availResp == null || !Boolean.TRUE.equals(availResp.getData())) {
             throw ServiceException.badRequest(
                     "Field '" + fieldDetail.name() + "' is currently under maintenance and cannot be booked");
-        }
-
-        // Kiểm tra kép qua field-service availability API
-        String dateStr  = request.bookingDate.toString();
-        String startStr = request.startTime.toString();
-        String endStr   = request.endTime.toString();
-
-        var availResp = fieldServiceClient.checkAvailability(request.fieldId, dateStr, startStr, endStr);
-        if (availResp == null || !Boolean.TRUE.equals(availResp.getData())) {
-            throw ServiceException.badRequest("Field is not available for the requested time slot");
         }
 
         // Bước 4 — Pessimistic Lock + Kiểm tra xung đột lịch (Double Booking)
@@ -81,6 +77,9 @@ public class BookingService {
         }
 
         // Bước 5: Tính giá
+        String dateStr  = request.bookingDate.toString();
+        String startStr = request.startTime.toString();
+        String endStr   = request.endTime.toString();
         var priceResp = fieldServiceClient.calculatePrice(request.fieldId, dateStr, startStr, endStr);
         if (priceResp == null || priceResp.getData() == null) {
             throw ServiceException.badRequest("Cannot calculate price for this field and time slot");
