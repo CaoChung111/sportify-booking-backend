@@ -22,6 +22,18 @@ public class BookingGatewayResource {
     @RestClient
     BookingServiceClient bookingClient;
 
+    @GET
+    @Path("/check-availability")
+    @PermitAll
+    @Operation(summary = "Kiểm tra một khung giờ có trống hay không")
+    public Response checkAvailability(
+            @QueryParam("fieldId") Long fieldId,
+            @QueryParam("date") String date,
+            @QueryParam("startTime") String startTime,
+            @QueryParam("endTime") String endTime) {
+        return bookingClient.checkAvailability(fieldId, date, startTime, endTime);
+    }
+
     @POST
     @Operation(summary = "Tạo đơn đặt sân mới")
     public Response create(@Context HttpHeaders headers, Object body) {

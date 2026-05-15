@@ -11,6 +11,13 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @Consumes(MediaType.APPLICATION_JSON)
 public interface BookingServiceClient {
 
+    @GET
+    @Path("/check-availability")
+    Response checkAvailability(@QueryParam("fieldId") Long fieldId,
+                               @QueryParam("date") String date,
+                               @QueryParam("startTime") String startTime,
+                               @QueryParam("endTime") String endTime);
+
     @POST
     Response create(@HeaderParam("Authorization") String authorization, Object body);
 

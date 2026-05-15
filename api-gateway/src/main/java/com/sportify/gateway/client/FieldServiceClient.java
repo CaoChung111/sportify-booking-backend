@@ -50,6 +50,36 @@ public interface FieldServiceClient {
                                @HeaderParam("Authorization") String authorization,
                                @QueryParam("status") String status);
 
+    @DELETE
+    @Path("/fields/{id}")
+    Response deleteField(@PathParam("id") Long id,
+                         @HeaderParam("Authorization") String authorization);
+
+    // ── FieldTypes ────────────────────────────────────────────────────────────
+
+    @GET
+    @Path("/field-types")
+    Response getFieldTypes(@QueryParam("sportId") Long sportId);
+
+    @GET
+    @Path("/field-types/{id}")
+    Response getFieldTypeById(@PathParam("id") Long id);
+
+    @POST
+    @Path("/field-types")
+    Response createFieldType(@HeaderParam("Authorization") String authorization, Object body);
+
+    @PUT
+    @Path("/field-types/{id}")
+    Response updateFieldType(@PathParam("id") Long id,
+                             @HeaderParam("Authorization") String authorization,
+                             Object body);
+
+    @DELETE
+    @Path("/field-types/{id}")
+    Response deleteFieldType(@PathParam("id") Long id,
+                             @HeaderParam("Authorization") String authorization);
+
     // ── Locations ─────────────────────────────────────────────────────────────
 
     @GET

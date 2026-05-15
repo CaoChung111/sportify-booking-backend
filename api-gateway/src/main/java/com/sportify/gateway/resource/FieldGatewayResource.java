@@ -85,6 +85,53 @@ public class FieldGatewayResource {
         return fieldClient.changeFieldStatus(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION), status);
     }
 
+    @DELETE
+    @Path("/fields/{id}")
+    @Operation(summary = "Xóa sân (Admin)")
+    public Response deleteField(@PathParam("id") Long id, @Context HttpHeaders headers) {
+        return fieldClient.deleteField(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
+    // ── FieldTypes ────────────────────────────────────────────────────────────
+
+    @GET
+    @Path("/field-types")
+    @PermitAll
+    @Operation(summary = "Lấy danh sách loại sân")
+    public Response getFieldTypes(@QueryParam("sportId") Long sportId) {
+        return fieldClient.getFieldTypes(sportId);
+    }
+
+    @GET
+    @Path("/field-types/{id}")
+    @PermitAll
+    @Operation(summary = "Lấy chi tiết loại sân theo ID")
+    public Response getFieldTypeById(@PathParam("id") Long id) {
+        return fieldClient.getFieldTypeById(id);
+    }
+
+    @POST
+    @Path("/field-types")
+    @Operation(summary = "Tạo loại sân mới (Admin)")
+    public Response createFieldType(@Context HttpHeaders headers, Object body) {
+        return fieldClient.createFieldType(headers.getHeaderString(HttpHeaders.AUTHORIZATION), body);
+    }
+
+    @PUT
+    @Path("/field-types/{id}")
+    @Operation(summary = "Cập nhật thông tin loại sân (Admin)")
+    public Response updateFieldType(@PathParam("id") Long id,
+                                    @Context HttpHeaders headers, Object body) {
+        return fieldClient.updateFieldType(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION), body);
+    }
+
+    @DELETE
+    @Path("/field-types/{id}")
+    @Operation(summary = "Xóa loại sân (Admin)")
+    public Response deleteFieldType(@PathParam("id") Long id, @Context HttpHeaders headers) {
+        return fieldClient.deleteFieldType(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
     // ── Locations ─────────────────────────────────────────────────────────────
 
     @GET
