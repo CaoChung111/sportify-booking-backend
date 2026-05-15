@@ -48,12 +48,7 @@ public interface FieldServiceClient {
     @Path("/fields/{id}/availability")
     @Retry(maxRetries = 2, delay = 200)
     @Timeout(2000)
-    ApiResponse<Boolean> checkAvailability(
-            @PathParam("id") Long fieldId,
-            @QueryParam("date") String date,
-            @QueryParam("startTime") String startTime,
-            @QueryParam("endTime") String endTime
-    );
+    ApiResponse<Boolean> checkAvailability(@PathParam("id") Long fieldId);
 
     /**
      * Tính giá cho khung giờ đặt sân (Dynamic Pricing).
