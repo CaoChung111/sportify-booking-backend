@@ -19,6 +19,7 @@ import org.keycloak.representations.idm.UserRepresentation;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 @ApplicationScoped
 public class AuthService {
@@ -154,7 +155,8 @@ public class AuthService {
                     .post(Entity.form(form));
 
             if (response.getStatus() != 200) {
-                throw ServiceException.badRequest("Invalid or expired refresh token");
+                String errorDetail = response.readEntity(String.class);
+                throw ServiceException.badRequest("Invalid or expired refresh token: " + errorDetail);
             }
 
             @SuppressWarnings("unchecked")
@@ -171,12 +173,12 @@ public class AuthService {
      * Lấy thông tin profile của user đang đăng nhập.
      * keycloakId được lấy từ JWT sub claim (inject qua JsonWebToken).
      */
-    public AuthDto.UserProfileResponse getProfile(String keycloakId) {
+    public AuthDto.UserProfileResponse getProfile(String keycloakId, Set<String> roles) {
         User user = User.findByKeycloakId(keycloakId);
         if (user == null) {
             throw ServiceException.notFound("User with keycloak_id", 0L);
         }
-        return toProfileResponse(user);
+        return toProfileResponse(user, roles);
     }
 
     // ── Update Profile ────────────────────────────────────────────────────────
@@ -223,14 +225,33 @@ public class AuthService {
     }
 
     private AuthDto.UserProfileResponse toProfileResponse(User user) {
+        return toProfileResponse(user, Collections.emptySet());
+    }
+
+    private AuthDto.UserProfileResponse toProfileResponse(User user, Set<String> roles) {
         AuthDto.UserProfileResponse res = new AuthDto.UserProfileResponse();
         res.id        = user.id;
         res.username  = user.username;
         res.email     = user.email;
         res.fullName  = user.fullName;
         res.phone     = user.phone;
+        res.roles     = roles;
+        res.role      = resolvePrimaryRole(roles);
         res.status    = user.status.name();
         res.createdAt = user.createdAt != null ? user.createdAt.toString() : null;
         return res;
+    }
+
+    private String resolvePrimaryRole(Set<String> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return null;
+        }
+        if (roles.contains("ADMIN")) {
+            return "ADMIN";
+        }
+        if (roles.contains("USER")) {
+            return "USER";
+        }
+        return roles.iterator().next();
     }
 }

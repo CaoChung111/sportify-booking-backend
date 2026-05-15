@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.Set;
+
 public class AuthDto {
 
     // ── Register ─────────────────────────────────────────────────────────────
@@ -80,6 +82,8 @@ public class AuthDto {
         public String email;
         public String fullName;
         public String phone;
+        public String role;
+        public Set<String> roles;
         public String status;
         public String createdAt;
     }

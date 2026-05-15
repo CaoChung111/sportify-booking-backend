@@ -18,6 +18,12 @@ public interface BookingServiceClient {
     Response getMyBookings(@HeaderParam("Authorization") String authorization);
 
     @GET
+    @Path("/field/{fieldId}")
+    Response getByFieldAndDate(@PathParam("fieldId") Long fieldId,
+                               @QueryParam("date") String date,
+                               @HeaderParam("Authorization") String authorization);
+
+    @GET
     @Path("/{id}")
     Response getById(@PathParam("id") Long id,
                      @HeaderParam("Authorization") String authorization);
