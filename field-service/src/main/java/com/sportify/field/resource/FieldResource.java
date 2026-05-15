@@ -30,18 +30,20 @@ public class FieldResource {
 
     /**
      * GET /api/v1/fields
-     * Lấy danh sách sân, lọc tuỳ chọn theo địa điểm và môn thể thao.
+     * Lấy danh sách sân, lọc tuỳ chọn theo tên, địa điểm và môn thể thao.
      */
     @GET
     @PermitAll
-    @Operation(summary = "Lấy danh sách sân (lọc theo location, sport)")
+    @Operation(summary = "Lấy danh sách sân (lọc theo tên, location, sport)")
     public Response getAll(
+            @Parameter(description = "Lọc theo tên sân (không phân biệt hoa thường)")
+            @QueryParam("name") String name,
             @Parameter(description = "Lọc theo ID địa điểm")
             @QueryParam("locationId") Long locationId,
             @Parameter(description = "Lọc theo ID môn thể thao")
             @QueryParam("sportId") Long sportId) {
 
-        List<FieldDto.FieldResponse> fields = fieldService.findAll(locationId, sportId);
+        List<FieldDto.FieldResponse> fields = fieldService.findAll(name, locationId, sportId);
         return Response.ok(ApiResponse.success(fields)).build();
     }
 
@@ -59,35 +61,17 @@ public class FieldResource {
     }
 
     /**
-     * GET /api/v1/fields/{id}/availability?date=&startTime=&endTime=
+     * GET /api/v1/fields/{id}/availability
      * Kiểm tra sân có đang mở cửa không (AVAILABLE vs MAINTENANCE).
      * Được Booking Service gọi nội bộ.
      */
     @GET
     @Path("/{id}/availability")
     @PermitAll
-    @Operation(summary = "Kiểm tra trạng thái mở cửa của sân cho khung giờ cụ thể")
-    public Response checkAvailability(
-            @PathParam("id") Long fieldId,
-            @Parameter(description = "Ngày đặt sân (YYYY-MM-DD)", required = true)
-            @QueryParam("date") String date,
-            @Parameter(description = "Giờ bắt đầu (HH:mm)", required = true)
-            @QueryParam("startTime") String startTime,
-            @Parameter(description = "Giờ kết thúc (HH:mm)", required = true)
-            @QueryParam("endTime") String endTime) {
-
-        try {
-            boolean available = fieldService.isAvailable(
-                    fieldId,
-                    LocalDate.parse(date),
-                    LocalTime.parse(startTime),
-                    LocalTime.parse(endTime));
-            return Response.ok(ApiResponse.success(available)).build();
-        } catch (DateTimeParseException e) {
-            return Response.status(400)
-                    .entity(ApiResponse.error("Invalid date/time format. Use YYYY-MM-DD and HH:mm"))
-                    .build();
-        }
+    @Operation(summary = "Kiểm tra trạng thái vận hành của sân (AVAILABLE/MAINTENANCE)")
+    public Response checkAvailability(@PathParam("id") Long fieldId) {
+        boolean available = fieldService.isAvailable(fieldId);
+        return Response.ok(ApiResponse.success(available)).build();
     }
 
     /**

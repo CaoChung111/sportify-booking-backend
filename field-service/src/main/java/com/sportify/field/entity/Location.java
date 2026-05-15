@@ -1,6 +1,6 @@
 package com.sportify.field.entity;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,7 +9,11 @@ import lombok.Setter;
 @Entity
 @Table(name = "locations")
 @Getter @Setter @NoArgsConstructor
-public class Location extends PanacheEntity {
+public class Location extends PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
 
     @Column(nullable = false, length = 100)
     public String name;

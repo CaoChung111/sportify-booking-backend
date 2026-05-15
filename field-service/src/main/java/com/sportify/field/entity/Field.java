@@ -1,6 +1,6 @@
 package com.sportify.field.entity;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,7 +10,11 @@ import java.util.List;
 @Entity
 @Table(name = "fields")
 @Getter @Setter @NoArgsConstructor
-public class Field extends PanacheEntity {
+public class Field extends PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id", nullable = false)

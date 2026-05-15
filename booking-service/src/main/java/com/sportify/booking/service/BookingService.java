@@ -65,7 +65,14 @@ public class BookingService {
             throw ServiceException.badRequest("Field is not available for the requested time slot");
         }
 
-        // Bước 4: Kiểm tra xung đột lịch đặt trong DB nội bộ (Double Booking)
+        // Bước 4 — Pessimistic Lock + Kiểm tra xung đột lịch (Double Booking)
+        //
+        // Pattern "Lock-then-Check":
+        //  1. lockSlot() giữ SELECT FOR UPDATE trên tất cả row của field+date này.
+        //     → Nếu có T2 đến đồng thời, T2 sẽ bị MySQL BLOCK tại đây cho đến khi T1 commit.
+        //  2. Sau khi lock thành công, chạy hasConflict() để kiểm tra thật sự.
+        //     → T2 sau khi được giải phóng cũng chạy lại hasConflict() và thấy đã bị chiếm → 409.
+        Booking.lockSlot(request.fieldId, request.bookingDate);
         if (Booking.hasConflict(request.fieldId, request.bookingDate, request.startTime, request.endTime)) {
             throw ServiceException.conflict(
                     "Time slot " + request.startTime + "–" + request.endTime +

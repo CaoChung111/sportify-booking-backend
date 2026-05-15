@@ -275,7 +275,8 @@ public class PaymentService {
         sortedParams.remove("vnp_SecureHashType");
 
         String dataToSign = sortedParams.entrySet().stream()
-                .map(e -> e.getKey() + "=" + e.getValue())
+                // FIX LỖI Ở ĐÂY: Phải bọc e.getValue() qua hàm encode một lần nữa
+                .map(e -> encode(e.getKey()) + "=" + encode(e.getValue()))
                 .collect(Collectors.joining("&"));
 
         String calculatedHash = hmacSHA512(vnpayHashSecret, dataToSign);
@@ -298,7 +299,10 @@ public class PaymentService {
             mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
             byte[] bytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
-            for (byte b : bytes) sb.append(String.format("%02x", b));
+            for (byte b : bytes) {
+                // FIX LỖI Ở ĐÂY: Bắt buộc phải có & 0xff để convert chuẩn byte sang hex
+                sb.append(String.format("%02x", b & 0xff));
+            }
             return sb.toString();
         } catch (Exception e) {
             throw new RuntimeException("HMAC SHA512 signing error", e);
@@ -306,9 +310,13 @@ public class PaymentService {
     }
 
     private String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+        if (value == null) return "";
+        // FIX LỖI Ở ĐÂY: Replace "+" thành "%20" theo chuẩn VNPAY
+        return URLEncoder.encode(value, StandardCharsets.UTF_8)
+                .replace("+", "%20")
+                .replace("*", "%2A")
+                .replace("%7E", "~");
     }
-
     /**
      * Sinh mã giao dịch nội bộ duy nhất.
      * Format: SPF{bookingId}{timestamp5digits}

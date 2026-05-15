@@ -20,14 +20,15 @@ public class FieldService {
     // ── Queries ───────────────────────────────────────────────────────────────
 
     /**
-     * Lấy danh sách sân, lọc theo location và/hoặc sport.
+     * Lấy danh sách sân, lọc theo tên, location và/hoặc sport.
      */
-    public List<FieldDto.FieldResponse> findAll(Long locationId, Long sportId) {
+    public List<FieldDto.FieldResponse> findAll(String name, Long locationId, Long sportId) {
         List<Field> fields = (locationId != null)
                 ? Field.findByLocation(locationId)
                 : Field.<Field>listAll();
 
         return fields.stream()
+                .filter(f -> name == null || name.isBlank() || f.name.toLowerCase().contains(name.toLowerCase().trim()))
                 .filter(f -> sportId == null || f.fieldType.sport.id.equals(sportId))
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -48,7 +49,7 @@ public class FieldService {
      * Lưu ý: Chỉ kiểm tra trạng thái vận hành sân (AVAILABLE/MAINTENANCE).
      * Việc kiểm tra xung đột lịch cụ thể do Booking Service tự xử lý.
      */
-    public boolean isAvailable(Long fieldId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+    public boolean isAvailable(Long fieldId) {
         Field field = Field.findById(fieldId);
         if (field == null) throw ServiceException.notFound("Field", fieldId);
         return field.status == Field.Status.AVAILABLE;

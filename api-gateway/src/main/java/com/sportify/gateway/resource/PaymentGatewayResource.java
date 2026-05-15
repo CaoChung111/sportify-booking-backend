@@ -1,0 +1,93 @@
+package com.sportify.gateway.resource;
+
+import com.sportify.gateway.client.PaymentServiceClient;
+import jakarta.annotation.security.PermitAll;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+
+@Path("/api/v1/payments")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "Payment Gateway", description = "Proxy → payment-service (port 8084)")
+public class PaymentGatewayResource {
+
+    @Inject
+    @RestClient
+    PaymentServiceClient paymentClient;
+
+    @POST
+    @Operation(summary = "Khởi tạo thanh toán cho booking (VNPAY | MoMo | CASH)")
+    public Response initiate(@Context HttpHeaders headers, Object body) {
+        return paymentClient.initiate(headers.getHeaderString(HttpHeaders.AUTHORIZATION), body);
+    }
+
+    @GET
+    @Operation(summary = "Lấy lịch sử thanh toán của user đang đăng nhập")
+    public Response getMyPayments(@Context HttpHeaders headers) {
+        return paymentClient.getMyPayments(headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
+    @GET
+    @Path("/{id}")
+    @Operation(summary = "Lấy chi tiết thanh toán theo ID")
+    public Response getById(@PathParam("id") Long id, @Context HttpHeaders headers) {
+        return paymentClient.getById(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
+    @GET
+    @Path("/booking/{bookingId}")
+    @Operation(summary = "Lấy thông tin thanh toán theo Booking ID")
+    public Response getByBookingId(@PathParam("bookingId") Long bookingId, @Context HttpHeaders headers) {
+        return paymentClient.getByBookingId(bookingId, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
+    @PATCH
+    @Path("/{id}/confirm-cash")
+    @Operation(summary = "Admin xác nhận thanh toán tiền mặt (CASH)")
+    public Response confirmCash(@PathParam("id") Long id, @Context HttpHeaders headers) {
+        return paymentClient.confirmCash(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
+    @GET
+    @Path("/vnpay/callback")
+    @PermitAll
+    @Operation(summary = "VNPay callback — xử lý kết quả thanh toán từ VNPay redirect")
+    public Response vnpayCallbackGet(
+            @QueryParam("vnp_TxnRef")        String txnRef,
+            @QueryParam("vnp_ResponseCode")  String responseCode,
+            @QueryParam("vnp_SecureHash")    String secureHash,
+            @QueryParam("vnp_Amount")        String amount,
+            @QueryParam("vnp_BankCode")      String bankCode,
+            @QueryParam("vnp_OrderInfo")     String orderInfo,
+            @QueryParam("vnp_PayDate")       String payDate,
+            @QueryParam("vnp_TransactionNo") String transactionNo) {
+        return paymentClient.vnpayCallbackGet(
+                txnRef, responseCode, secureHash, amount, bankCode, orderInfo, payDate, transactionNo);
+    }
+
+    @POST
+    @Path("/vnpay/callback")
+    @PermitAll
+    @Operation(summary = "VNPay IPN webhook — xử lý thông báo server-to-server")
+    public Response vnpayCallbackPost(
+            @QueryParam("vnp_TxnRef")       String txnRef,
+            @QueryParam("vnp_ResponseCode") String responseCode,
+            @QueryParam("vnp_SecureHash")   String secureHash) {
+        return paymentClient.vnpayCallbackPost(txnRef, responseCode, secureHash);
+    }
+
+    @POST
+    @Path("/momo/callback")
+    @PermitAll
+    @Operation(summary = "MoMo IPN webhook — xử lý thông báo thanh toán từ MoMo")
+    public Response momoCallback(Object body) {
+        return paymentClient.momoCallback(body);
+    }
+}
