@@ -6,6 +6,7 @@ import com.sportify.payment.dto.PaymentDto;
 import com.sportify.payment.entity.Payment;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
@@ -28,6 +29,9 @@ public class PaymentService {
     @Inject
     @RestClient
     BookingServiceClient bookingServiceClient;
+
+    @Inject
+    EntityManager entityManager;
 
     @ConfigProperty(name = "vnpay.tmn-code",      defaultValue = "SPORTIFY1")
     String vnpayTmnCode;
@@ -76,10 +80,9 @@ public class PaymentService {
             throw ServiceException.conflict("Booking #" + request.bookingId + " has already been paid successfully");
         }
         // Nếu có payment cũ bị FAILED → cho phép tạo mới (retry payment)
-        if (existing != null && existing.paymentStatus == Payment.PaymentStatus.PENDING) {
-            throw ServiceException.conflict(
-                    "A payment is already in progress for booking #" + request.bookingId +
-                    ". Please complete or wait for the current payment to expire.");
+        if (existing != null) {
+            existing.delete();
+            entityManager.flush();
         }
 
         // Bước 3: Sinh TxnRef duy nhất
@@ -151,6 +154,11 @@ public class PaymentService {
 
         // Idempotency: đã xử lý rồi → bỏ qua
         if (payment.paymentStatus == Payment.PaymentStatus.SUCCESS) {
+            try {
+                bookingServiceClient.markBookingPaid(payment.bookingId);
+            } catch (Exception e) {
+                // Keep callback idempotent; a later retry can reconcile booking status.
+            }
             return "already_processed";
         }
 
@@ -169,7 +177,7 @@ public class PaymentService {
 
             // Gọi booking-service xác nhận đơn
             try {
-                bookingServiceClient.confirmBooking(payment.bookingId);
+                bookingServiceClient.markBookingPaid(payment.bookingId);
             } catch (Exception e) {
                 // Log nhưng không rollback payment — booking-service có thể retry
                 // Trong production: dùng message queue (Kafka) để đảm bảo at-least-once
@@ -209,6 +217,23 @@ public class PaymentService {
     }
 
     // ── VNPay URL Builder ─────────────────────────────────────────────────────
+
+    @Transactional
+    public PaymentDto.PaymentResponse markCashSuccessByBookingId(Long bookingId) {
+        Payment payment = Payment.findByBookingId(bookingId);
+        if (payment == null) throw ServiceException.notFound("Payment for booking", bookingId);
+
+        if (payment.paymentMethod != Payment.PaymentMethod.CASH) {
+            return toResponse(payment, null);
+        }
+
+        if (payment.paymentStatus != Payment.PaymentStatus.SUCCESS) {
+            payment.paymentStatus = Payment.PaymentStatus.SUCCESS;
+            payment.persist();
+        }
+
+        return toResponse(payment, null);
+    }
 
     private String buildVnpayUrl(String txnRef, BigDecimal amount, String orderInfo) {
         long   vnpAmount     = amount.multiply(BigDecimal.valueOf(100)).longValue();

@@ -170,6 +170,15 @@ public class BookingResource {
      * ⚠️ Endpoint nội bộ.
      */
     @PATCH
+    @Path("/{id}/mark-paid")
+    @PermitAll
+    @Operation(summary = "[Internal] Mark booking as paid and waiting for admin confirmation")
+    public Response markPaid(@PathParam("id") Long id) {
+        bookingService.markPaidPendingConfirmation(id);
+        return Response.ok(ApiResponse.success("Booking paid, waiting for admin confirmation", null)).build();
+    }
+
+    @PATCH
     @Path("/{id}/complete")
     @PermitAll
     @Operation(summary = "[Internal/Admin] Đánh dấu booking đã hoàn thành")

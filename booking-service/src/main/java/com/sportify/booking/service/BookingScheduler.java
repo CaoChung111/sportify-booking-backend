@@ -1,10 +1,13 @@
 package com.sportify.booking.service;
 
+import com.sportify.booking.client.PaymentServiceClient;
 import com.sportify.booking.entity.Booking;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import java.time.LocalDateTime;
@@ -25,6 +28,10 @@ import java.util.List;
 public class BookingScheduler {
 
     private static final Logger LOG = Logger.getLogger(BookingScheduler.class);
+
+    @Inject
+    @RestClient
+    PaymentServiceClient paymentServiceClient;
 
     /** Thời gian tối đa (phút) một booking được giữ ở trạng thái PENDING. */
     @ConfigProperty(name = "booking.pending.expire-minutes", defaultValue = "15")
@@ -52,6 +59,10 @@ public class BookingScheduler {
                 expired.size(), expireMinutes);
 
         for (Booking booking : expired) {
+            if (!shouldCancelExpiredBooking(booking)) {
+                continue;
+            }
+
             booking.status = Booking.BookingStatus.CANCELLED;
             booking.persist();
             LOG.debugf("[AutoCancel] Đã huỷ booking #%d (user=%d, field=%d, date=%s, slot=%s-%s)",
@@ -60,5 +71,21 @@ public class BookingScheduler {
         }
 
         LOG.infof("[AutoCancel] Hoàn thành — đã huỷ %d booking.", expired.size());
+    }
+
+    private boolean shouldCancelExpiredBooking(Booking booking) {
+        try {
+            var paymentResponse = paymentServiceClient.getByBookingId(booking.id);
+            if (paymentResponse == null || paymentResponse.getData() == null) {
+                return false;
+            }
+
+            var payment = paymentResponse.getData();
+            return "VNPAY".equalsIgnoreCase(payment.paymentMethod())
+                    && !"SUCCESS".equalsIgnoreCase(payment.paymentStatus());
+        } catch (Exception e) {
+            LOG.debugf(e, "[AutoCancel] KhÃ´ng láº¥y Ä‘Æ°á»£c payment cho booking #%d, bá» qua.", booking.id);
+            return false;
+        }
     }
 }

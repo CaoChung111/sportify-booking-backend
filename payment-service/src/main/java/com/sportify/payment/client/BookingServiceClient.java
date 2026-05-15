@@ -40,6 +40,12 @@ public interface BookingServiceClient {
      * Payment SUCCESS → gọi API này → Booking chuyển sang CONFIRMED.
      */
     @PATCH
+    @Path("/{id}/mark-paid")
+    @Retry(maxRetries = 3, delay = 500)
+    @Timeout(5000)
+    ApiResponse<Void> markBookingPaid(@PathParam("id") Long bookingId);
+
+    @PATCH
     @Path("/{id}/confirm")
     @Retry(maxRetries = 3, delay = 500)
     @Timeout(5000)

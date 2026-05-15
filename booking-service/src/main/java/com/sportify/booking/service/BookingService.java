@@ -1,6 +1,7 @@
 package com.sportify.booking.service;
 
 import com.sportify.booking.client.FieldServiceClient;
+import com.sportify.booking.client.PaymentServiceClient;
 import com.sportify.booking.dto.BookingDto;
 import com.sportify.booking.entity.Booking;
 import com.sportify.common.exception.ServiceException;
@@ -24,6 +25,9 @@ public class BookingService {
     @RestClient
     FieldServiceClient fieldServiceClient;
 
+    @Inject
+    @RestClient
+    PaymentServiceClient paymentServiceClient;
     // ── Check Availability ───────────────────────────────────────────────────
 
     /**
@@ -170,9 +174,10 @@ public class BookingService {
             throw ServiceException.badRequest("You do not have permission to cancel this booking");
         }
 
-        if (booking.status == Booking.BookingStatus.CONFIRMED) {
+        if (booking.status == Booking.BookingStatus.PAID_PENDING_CONFIRMATION ||
+                booking.status == Booking.BookingStatus.CONFIRMED) {
             throw ServiceException.badRequest(
-                    "Cannot cancel a confirmed booking. Please contact support for refund.");
+                    "Cannot cancel a paid booking. Please contact support for refund.");
         }
 
         if (booking.status == Booking.BookingStatus.CANCELLED) {
@@ -201,16 +206,53 @@ public class BookingService {
         Booking booking = Booking.findById(id);
         if (booking == null) throw ServiceException.notFound("Booking", id);
 
-        if (booking.status != Booking.BookingStatus.PENDING) {
+        if (booking.status != Booking.BookingStatus.PENDING &&
+                booking.status != Booking.BookingStatus.PAID_PENDING_CONFIRMATION) {
             throw ServiceException.badRequest(
                     "Booking cannot be confirmed: current status is " + booking.status);
         }
 
         booking.status = Booking.BookingStatus.CONFIRMED;
         booking.persist();
+        confirmCashPaymentIfNeeded(booking.id);
     }
 
     // ── Hoàn thành Booking (cập nhật sau khi chơi xong) ──────────────────────
+
+    private void confirmCashPaymentIfNeeded(Long bookingId) {
+        try {
+            var paymentResponse = paymentServiceClient.getByBookingId(bookingId);
+            if (paymentResponse == null || paymentResponse.getData() == null) {
+                return;
+            }
+
+            var payment = paymentResponse.getData();
+            if ("CASH".equalsIgnoreCase(payment.paymentMethod())
+                    && !"SUCCESS".equalsIgnoreCase(payment.paymentStatus())) {
+                paymentServiceClient.confirmCashByBookingId(bookingId);
+            }
+        } catch (Exception e) {
+            throw ServiceException.badRequest("Cannot confirm CASH payment for booking " + bookingId);
+        }
+    }
+
+    @Transactional
+    public void markPaidPendingConfirmation(Long id) {
+        Booking booking = Booking.findById(id);
+        if (booking == null) throw ServiceException.notFound("Booking", id);
+
+        if (booking.status == Booking.BookingStatus.PAID_PENDING_CONFIRMATION) {
+            return;
+        }
+
+        if (booking.status != Booking.BookingStatus.PENDING) {
+            throw ServiceException.badRequest(
+                    "Booking cannot be marked as paid: current status is " + booking.status);
+        }
+
+        booking.status = Booking.BookingStatus.PAID_PENDING_CONFIRMATION;
+        booking.persist();
+    }
 
     @Transactional
     public void complete(Long id) {
