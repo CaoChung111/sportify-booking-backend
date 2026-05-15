@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 @Entity
 @Table(name = "bookings")
@@ -97,7 +98,7 @@ public class Booking extends PanacheEntity {
     public static List<Booking> findByFieldId(Long fieldId) {
         return list("fieldId = ?1 ORDER BY bookingDate DESC, startTime ASC", fieldId);
     }
-
+    
     public static List<Booking> findByFieldIdAndDate(Long fieldId, LocalDate date) {
         return list(
                 "fieldId = ?1 AND bookingDate = ?2 AND status != ?3 ORDER BY startTime ASC",
@@ -110,13 +111,6 @@ public class Booking extends PanacheEntity {
 
     /**
      * Pessimistic Lock: Khoá tất cả row booking của field + ngày này lại trước khi INSERT.
-     *
-     * Cơ chế:
-     * - Transaction 1 giữ lock → Transaction 2 BỊ BLOCK tại đây.
-     * - Khi T1 commit/rollback → T2 mới được tiếp tục, sau đó chạy hasConflict() lần nữa.
-     * - Loại bỏ hoàn toàn race condition mà không cần Redis.
-     *
-     * QUAN TRỌNG: Phải gọi trong @Transactional context.
      */
     public static void lockSlot(Long fieldId, LocalDate date) {
         getEntityManager().createNativeQuery(
@@ -126,11 +120,18 @@ public class Booking extends PanacheEntity {
         )
         .setParameter("fieldId", fieldId)
         .setParameter("date", date)
-        .getResultList(); // Kết quả không cần dùng — chỉ cần tác dụng LOCK
+        .getResultList();
     }
 
     /**
      * Kiểm tra xung đột lịch đặt (Double Booking Prevention).
+     */
+    public static boolean hasConflict(Long fieldId, LocalDate date, LocalTime start, LocalTime end) {
+        return findFirstConflict(fieldId, date, start, end).isPresent();
+    }
+
+    /**
+     * Tìm booking đầu tiên gây ra xung đột với một khung giờ cho trước.
      * Một khung giờ bị coi là đã có người đặt nếu tồn tại một booking khác (B)
      * thoả mãn ĐỒNG THỜI 2 điều kiện:
      * 1. Khung giờ của B chồng chéo với khung giờ đang xét.
@@ -138,10 +139,10 @@ public class Booking extends PanacheEntity {
      *    - CONFIRMED hoặc COMPLETED
      *    - HOẶC là PENDING và chưa hết hạn (được tạo trong vòng 15 phút gần nhất).
      */
-    public static boolean hasConflict(Long fieldId, LocalDate date, LocalTime start, LocalTime end) {
+    public static Optional<Booking> findFirstConflict(Long fieldId, LocalDate date, LocalTime start, LocalTime end) {
         LocalDateTime pendingCutoff = LocalDateTime.now().minusMinutes(PENDING_EXPIRATION_MINUTES);
 
-        long count = count(
+        return find(
             "fieldId = ?1 AND bookingDate = ?2 " +
             "AND (startTime < ?4 AND endTime > ?3) " + // Điều kiện overlap
             "AND ( " +
@@ -149,13 +150,11 @@ public class Booking extends PanacheEntity {
             "  (status = 'PENDING' AND createdAt >= ?5) " +
             ")",
             fieldId, date, start, end, pendingCutoff
-        );
-        return count > 0;
+        ).firstResultOptional();
     }
 
     /**
      * Tìm tất cả booking PENDING quá hạn (dùng cho Scheduler auto-cancel).
-     * @param cutoff Ngưỡng thời gian — booking có createdAt trước mốc này sẽ bị huỷ.
      */
     public static List<Booking> findExpiredPending(LocalDateTime cutoff) {
         return list("status = ?1 AND createdAt < ?2",

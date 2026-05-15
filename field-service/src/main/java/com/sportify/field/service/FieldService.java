@@ -57,12 +57,7 @@ public class FieldService {
 
     /**
      * Tính giá cho khung giờ đặt sân — nghiệp vụ Dynamic Pricing.
-     *
-     * Thuật toán:
-     * 1. Xác định loại ngày (WEEKDAY / WEEKEND)
-     * 2. Tìm Price Rule khớp: location + fieldType + startTime nằm trong [start_time, end_time) + dayType
-     * 3. Fallback: nếu không có rule WEEKEND → dùng rule WEEKDAY
-     * 4. Tính: totalPrice = pricePerHour × durationHours
+     * Thuật toán mới: Tính giá theo từng phân đoạn thời gian.
      */
     public FieldDto.PriceResponse calculatePrice(Long fieldId, LocalDate date,
                                                   LocalTime startTime, LocalTime endTime) {
@@ -73,35 +68,69 @@ public class FieldService {
             throw ServiceException.badRequest("endTime must be after startTime");
         }
 
-        Price.DayType dayType    = resolveDayType(date);
-        Long          locationId = field.location.id;
-        Long          fieldTypeId = field.fieldType.id;
+        Price.DayType dayType = resolveDayType(date);
+        Long locationId = field.location.id;
+        Long fieldTypeId = field.fieldType.id;
 
-        // Tìm Price Rule khớp đúng loại ngày
-        Price priceRule = Price.findApplicable(locationId, fieldTypeId, startTime, dayType);
+        // Lấy tất cả các quy tắc giá áp dụng cho loại sân và loại ngày này
+        List<Price> priceRules = Price.findRulesForDay(locationId, fieldTypeId, dayType);
 
-        // Fallback: nếu WEEKEND/HOLIDAY không có rule → dùng WEEKDAY
-        if (priceRule == null && dayType != Price.DayType.WEEKDAY) {
-            priceRule = Price.findApplicable(locationId, fieldTypeId, startTime, Price.DayType.WEEKDAY);
+        // Fallback: nếu WEEKEND/HOLIDAY không có rule → dùng rule WEEKDAY
+        if (priceRules.isEmpty() && dayType != Price.DayType.WEEKDAY) {
+            priceRules = Price.findRulesForDay(locationId, fieldTypeId, Price.DayType.WEEKDAY);
         }
 
-        if (priceRule == null) {
+        if (priceRules.isEmpty()) {
             throw ServiceException.badRequest(
-                    "No price rule found for field " + fieldId +
-                    " at " + startTime + " on " + dayType);
+                    "No price rules found for field " + fieldId +
+                    " on " + dayType + ". Please configure prices.");
         }
 
-        // Tính số giờ đặt
-        long   durationMinutes = Duration.between(startTime, endTime).toMinutes();
-        double hours           = durationMinutes / 60.0;
-        BigDecimal totalPrice  = priceRule.price.multiply(BigDecimal.valueOf(hours));
+        BigDecimal totalCalculatedPrice = BigDecimal.ZERO;
+        LocalTime currentSegmentStart = startTime;
+        double totalDurationHours = 0.0;
+
+        while (currentSegmentStart.isBefore(endTime)) {
+            // Tìm quy tắc giá áp dụng cho thời điểm hiện tại
+            Price applicableRule = null;
+            for (Price rule : priceRules) {
+                if (!rule.getStartTime().isAfter(currentSegmentStart) && rule.getEndTime().isAfter(currentSegmentStart)) {
+                    applicableRule = rule;
+                    break;
+                }
+            }
+
+            if (applicableRule == null) {
+                throw ServiceException.badRequest(
+                        "No price rule found for field " + fieldId +
+                        " at " + currentSegmentStart + " on " + dayType + ". Please configure prices.");
+            }
+
+            // Xác định thời điểm kết thúc của phân đoạn hiện tại
+            LocalTime segmentEnd = applicableRule.getEndTime();
+            if (segmentEnd.isAfter(endTime)) {
+                segmentEnd = endTime; // Không vượt quá thời gian kết thúc booking
+            }
+
+            // Tính thời lượng của phân đoạn
+            long segmentMinutes = Duration.between(currentSegmentStart, segmentEnd).toMinutes();
+            double segmentHours = segmentMinutes / 60.0;
+
+            // Tính giá cho phân đoạn và cộng vào tổng
+            BigDecimal segmentPrice = applicableRule.getPrice().multiply(BigDecimal.valueOf(segmentHours));
+            totalCalculatedPrice = totalCalculatedPrice.add(segmentPrice);
+            totalDurationHours += segmentHours;
+
+            // Di chuyển đến thời điểm bắt đầu của phân đoạn tiếp theo
+            currentSegmentStart = segmentEnd;
+        }
 
         FieldDto.PriceResponse resp = new FieldDto.PriceResponse();
         resp.fieldId       = fieldId;
-        resp.fieldName     = field.name;
-        resp.pricePerHour  = priceRule.price;
-        resp.durationHours = hours;
-        resp.totalPrice    = totalPrice;
+        resp.fieldName     = field.name; // field.name đã được tải thông qua toResponse
+        resp.totalPrice    = totalCalculatedPrice;
+        resp.pricePerHour  = null; // Không còn khái niệm pricePerHour chung
+        resp.durationHours = totalDurationHours;
         resp.currency      = "VND";
         resp.dayType       = dayType.name();
         return resp;
@@ -183,6 +212,27 @@ public class FieldService {
         }
 
         field.persist();
+    }
+
+    /**
+     * Xóa sân.
+     * Quy tắc an toàn:
+     *  - Sân phải tồn tại.
+     *  - Sân phải ở trạng thái MAINTENANCE trước khi xóa.
+     *    (Buộc Admin đặt sân sang MAINTENANCE → tránh xóa sân đang vận hành,
+     *     Booking Service có thể đang nhận đặt lịch trên sân đó.)
+     */
+    @Transactional
+    public void delete(Long id) {
+        Field field = Field.findById(id);
+        if (field == null) throw ServiceException.notFound("Field", id);
+
+        if (field.status == Field.Status.AVAILABLE) {
+            throw ServiceException.badRequest(
+                    "Cannot delete field '" + field.name + "': field must be set to MAINTENANCE before deletion");
+        }
+
+        field.delete();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

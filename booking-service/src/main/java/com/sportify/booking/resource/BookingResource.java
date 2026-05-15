@@ -11,10 +11,12 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @Path("/api/v1/bookings")
@@ -28,8 +30,6 @@ public class BookingResource {
 
     /**
      * Lấy userId từ JWT claim.
-     * - Production: lấy claim "userId" (Auth Service lưu vào DB local, map với Keycloak ID)
-     * - Dev mode: OIDC disabled → fallback về userId=1
      */
     private Long currentUserId() {
         try {
@@ -37,7 +37,6 @@ public class BookingResource {
             if (userIdClaim != null) {
                 return Long.valueOf(userIdClaim.toString());
             }
-            // Nếu không có userId claim, dùng sub claim làm fallback
             String sub = jwt.getSubject();
             if (sub != null && !sub.isBlank()) {
                 return 1L; // map keycloakId → userId=1 for dev
@@ -48,12 +47,32 @@ public class BookingResource {
         return 1L;
     }
 
+    // ── Check Availability ───────────────────────────────────────────────────
+
+    /**
+     * GET /api/v1/bookings/check-availability
+     * Kiểm tra một khung giờ có trống không trước khi tạo booking.
+     */
+    @GET
+    @Path("/check-availability")
+    @Operation(summary = "Kiểm tra một khung giờ có trống hay không")
+    @APIResponse(responseCode = "200", description = "Khung giờ trống")
+    @APIResponse(responseCode = "409", description = "Khung giờ đã được đặt")
+    public Response checkAvailability(
+            @Parameter(description = "ID của sân", required = true) @QueryParam("fieldId") Long fieldId,
+            @Parameter(description = "Ngày đặt (YYYY-MM-DD)", required = true) @QueryParam("date") LocalDate date,
+            @Parameter(description = "Giờ bắt đầu (HH:mm)", required = true) @QueryParam("startTime") LocalTime startTime,
+            @Parameter(description = "Giờ kết thúc (HH:mm)", required = true) @QueryParam("endTime") LocalTime endTime) {
+
+        bookingService.checkSlotAvailability(fieldId, date, startTime, endTime);
+        return Response.ok(ApiResponse.success("This time slot is available", null)).build();
+    }
+
     // ── Tạo đặt sân ──────────────────────────────────────────────────────────
 
     /**
      * POST /api/v1/bookings
      * Tạo đơn đặt sân mới.
-     * Hệ thống tự động kiểm tra xung đột lịch và tính giá.
      */
     @POST
     @Operation(summary = "Tạo đơn đặt sân mới — kiểm tra xung đột lịch và tính giá tự động")
@@ -118,7 +137,6 @@ public class BookingResource {
     /**
      * PATCH /api/v1/bookings/{id}/cancel
      * Huỷ đặt sân — chỉ được huỷ khi trạng thái PENDING.
-     * Đơn đã CONFIRMED (đã thanh toán) không thể huỷ qua đây.
      */
     @PATCH
     @Path("/{id}/cancel")
@@ -134,9 +152,7 @@ public class BookingResource {
 
     /**
      * PATCH /api/v1/bookings/{id}/confirm
-     * Xác nhận booking sau khi thanh toán thành công.
      * ⚠️ Endpoint nội bộ — chỉ Payment Service mới được phép gọi.
-     * Trong production: bảo vệ bằng mTLS hoặc internal network/service mesh.
      */
     @PATCH
     @Path("/{id}/confirm")
@@ -151,8 +167,7 @@ public class BookingResource {
 
     /**
      * PATCH /api/v1/bookings/{id}/complete
-     * Đánh dấu booking đã hoàn thành (sau khi khách đã chơi).
-     * Thường được gọi bởi admin hoặc cron job.
+     * ⚠️ Endpoint nội bộ.
      */
     @PATCH
     @Path("/{id}/complete")
@@ -167,7 +182,6 @@ public class BookingResource {
 
     /**
      * GET /api/v1/bookings/{id}/internal
-     * Lấy thông tin booking không kiểm tra userId — dành cho Payment Service.
      * ⚠️ Endpoint nội bộ.
      */
     @GET
