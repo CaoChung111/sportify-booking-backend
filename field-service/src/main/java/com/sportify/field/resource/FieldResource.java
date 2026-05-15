@@ -148,7 +148,28 @@ public class FieldResource {
             @Parameter(description = "Trạng thái mới: AVAILABLE hoặc MAINTENANCE", required = true)
             @QueryParam("status") String status) {
 
+        if (status == null || status.isBlank()) {
+            return Response.status(400)
+                    .entity(ApiResponse.error("Query parameter 'status' is required"))
+                    .build();
+        }
         fieldService.changeStatus(id, status);
         return Response.ok(ApiResponse.success("Field status updated to " + status.toUpperCase(), null)).build();
     }
+
+    /**
+     * DELETE /api/v1/fields/{id}
+     * Xóa sân — chỉ Admin.
+     * Sân phải ở trạng thái MAINTENANCE trước khi xóa.
+     * Trả về 400 nếu sân vẫn đang AVAILABLE.
+     */
+    @DELETE
+    @Path("/{id}")
+    @RolesAllowed("ADMIN")
+    @Operation(summary = "Xóa sân (Admin) — sân phải ở MAINTENANCE trước khi xóa")
+    public Response delete(@PathParam("id") Long id) {
+        fieldService.delete(id);
+        return Response.ok(ApiResponse.success("Field deleted successfully", null)).build();
+    }
 }
+

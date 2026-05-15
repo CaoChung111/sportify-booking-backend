@@ -13,7 +13,10 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -26,6 +29,26 @@ public class BookingService {
     @Inject
     @RestClient
     PaymentServiceClient paymentServiceClient;
+
+    // ── Check Availability ───────────────────────────────────────────────────
+
+    /**
+     * Kiểm tra một khung giờ cụ thể có trống hay không.
+     * Nếu không trống, ném ra lỗi 409 Conflict với thông báo chi tiết.
+     */
+    public void checkSlotAvailability(Long fieldId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        Optional<Booking> conflict = Booking.findFirstConflict(fieldId, date, startTime, endTime);
+        if (conflict.isPresent()) {
+            Booking existingBooking = conflict.get();
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+            String message = String.format(
+                    "Khung giờ này đã được đặt hoặc đang được giữ để thanh toán (từ %s đến %s). Vui lòng thử lại sau ít phút.",
+                    existingBooking.getStartTime().format(timeFormatter),
+                    existingBooking.getEndTime().format(timeFormatter)
+            );
+            throw ServiceException.conflict(message);
+        }
+    }
 
     // ── Tạo Đơn Đặt Sân ──────────────────────────────────────────────────────
 
@@ -69,18 +92,9 @@ public class BookingService {
         }
 
         // Bước 4 — Pessimistic Lock + Kiểm tra xung đột lịch (Double Booking)
-        //
-        // Pattern "Lock-then-Check":
-        //  1. lockSlot() giữ SELECT FOR UPDATE trên tất cả row của field+date này.
-        //     → Nếu có T2 đến đồng thời, T2 sẽ bị MySQL BLOCK tại đây cho đến khi T1 commit.
-        //  2. Sau khi lock thành công, chạy hasConflict() để kiểm tra thật sự.
-        //     → T2 sau khi được giải phóng cũng chạy lại hasConflict() và thấy đã bị chiếm → 409.
         Booking.lockSlot(request.fieldId, request.bookingDate);
-        if (Booking.hasConflict(request.fieldId, request.bookingDate, request.startTime, request.endTime)) {
-            throw ServiceException.conflict(
-                    "Time slot " + request.startTime + "–" + request.endTime +
-                    " on " + request.bookingDate + " is already booked for this field");
-        }
+        checkSlotAvailability(request.fieldId, request.bookingDate, request.startTime, request.endTime);
+
 
         // Bước 5: Tính giá
         String dateStr  = request.bookingDate.toString();
