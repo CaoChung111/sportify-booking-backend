@@ -11,12 +11,15 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,9 @@ public class PaymentResource {
 
     @Inject PaymentService paymentService;
     @Inject JsonWebToken   jwt;
+
+    @ConfigProperty(name = "payment.frontend-return-url", defaultValue = "http://localhost:5173/payment/vnpay-return")
+    String frontendReturnUrl;
 
     private Long currentUserId() {
         try {
@@ -77,6 +83,7 @@ public class PaymentResource {
 
     @GET
     @Path("/booking/{bookingId}")
+    @PermitAll
     @Operation(summary = "Lấy thông tin thanh toán theo Booking ID")
     public Response getByBookingId(@PathParam("bookingId") Long bookingId) {
         PaymentDto.PaymentResponse payment = paymentService.getByBookingId(bookingId);
@@ -110,6 +117,15 @@ public class PaymentResource {
      *
      * Tham số chuẩn VNPay: vnp_TxnRef, vnp_ResponseCode, vnp_SecureHash, v.v.
      */
+    @PATCH
+    @Path("/booking/{bookingId}/confirm-cash")
+    @PermitAll
+    @Operation(summary = "[Internal] Mark CASH payment as successful by Booking ID")
+    public Response confirmCashByBookingId(@PathParam("bookingId") Long bookingId) {
+        PaymentDto.PaymentResponse payment = paymentService.markCashSuccessByBookingId(bookingId);
+        return Response.ok(ApiResponse.success("Cash payment marked as SUCCESS", payment)).build();
+    }
+
     @GET
     @Path("/vnpay/callback")
     @PermitAll
@@ -126,8 +142,13 @@ public class PaymentResource {
             if (!v.isEmpty()) allParams.put(k, v.get(0));
         });
 
-        String result = paymentService.processVnpayCallback(txnRef, responseCode, secureHash, allParams);
-        return Response.ok(ApiResponse.success("VNPay callback processed: " + result, null)).build();
+        try {
+            String result = paymentService.processVnpayCallback(txnRef, responseCode, secureHash, allParams);
+            return redirectToFrontend(result, messageFor(result), txnRef);
+        } catch (Exception e) {
+            String message = e.getMessage() != null ? e.getMessage() : "Payment callback processing failed";
+            return redirectToFrontend("failed", message, txnRef);
+        }
     }
 
     /**
@@ -153,6 +174,24 @@ public class PaymentResource {
         paymentService.processVnpayCallback(txnRef, responseCode, secureHash, allParams);
         // VNPay yêu cầu response đúng format
         return Response.ok("{\"RspCode\":\"00\",\"Message\":\"Confirm Success\"}").build();
+    }
+
+    private Response redirectToFrontend(String status, String message, String txnRef) {
+        URI redirectUri = UriBuilder.fromUri(frontendReturnUrl)
+                .queryParam("status", status)
+                .queryParam("message", message)
+                .queryParam("txnRef", txnRef)
+                .build();
+        return Response.seeOther(redirectUri).build();
+    }
+
+    private String messageFor(String result) {
+        return switch (result) {
+            case "success" -> "Payment successful, waiting for admin confirmation";
+            case "already_processed" -> "Payment already processed";
+            case "failed" -> "Payment failed";
+            default -> "Payment callback processed";
+        };
     }
 
 }
