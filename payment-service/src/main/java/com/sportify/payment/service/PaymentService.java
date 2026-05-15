@@ -14,6 +14,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -21,6 +22,8 @@ import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class PaymentService {
+
+    private static final Charset VNPAY_CHARSET = StandardCharsets.US_ASCII;
 
     @Inject
     @RestClient
@@ -49,7 +52,7 @@ public class PaymentService {
      * 2. Kiểm tra chống thanh toán đúp (booking đã có payment SUCCESS)
      * 3. Sinh mã giao dịch nội bộ (TxnRef)
      * 4. Tạo bản ghi Payment (PENDING)
-     * 5. Nếu VNPAY/MoMo: sinh Payment URL (bảo mật bằng HMAC-SHA512)
+     * 5. Nếu VNPAY: sinh Payment URL (bảo mật bằng HMAC-SHA512)
      * 6. Trả về PaymentResponse kèm paymentUrl (nếu có)
      */
     @Transactional
@@ -93,13 +96,12 @@ public class PaymentService {
         payment.txnRef        = txnRef;
         payment.persist();
 
-        // Bước 5: Tạo Payment URL (chỉ với VNPAY/MoMo)
+        // Bước 5: Tạo Payment URL (chỉ với VNPAY)
         String paymentUrl = null;
         switch (method) {
             case VNPAY -> paymentUrl = buildVnpayUrl(
                     txnRef, booking.totalPrice(),
-                    "Dat san " + booking.fieldName() + " - " + request.bookingId);
-            case MOMO  -> paymentUrl = buildMomoUrl(txnRef, booking.totalPrice(), request.bookingId);
+                    "Sportify booking " + request.bookingId);
             case CASH  -> { /* Cash: admin xác nhận thủ công, không có URL */ }
         }
 
@@ -180,33 +182,6 @@ public class PaymentService {
         }
     }
 
-    // ── MoMo Callback Handler ─────────────────────────────────────────────────
-
-    /**
-     * Xử lý callback từ MoMo:
-     * resultCode = 0 → thành công, != 0 → thất bại.
-     */
-    @Transactional
-    public void processMomoCallback(PaymentDto.MomoCallbackRequest request) {
-        Payment payment = Payment.find("txnRef", request.orderId).firstResult();
-        if (payment == null) return; // Bỏ qua nếu không tìm thấy
-
-        if (payment.paymentStatus == Payment.PaymentStatus.SUCCESS) return; // Idempotency
-
-        if (request.resultCode == 0) {
-            payment.paymentStatus = Payment.PaymentStatus.SUCCESS;
-            payment.persist();
-            try {
-                bookingServiceClient.confirmBooking(payment.bookingId);
-            } catch (Exception e) {
-                // Log lỗi, cần retry mechanism trong production
-            }
-        } else {
-            payment.paymentStatus = Payment.PaymentStatus.FAILED;
-            payment.persist();
-        }
-    }
-
     // ── Cash: Admin xác nhận thanh toán tiền mặt ─────────────────────────────
 
     /**
@@ -258,7 +233,8 @@ public class PaymentService {
 
         // Tạo chuỗi query và ký bằng HMAC-SHA512
         String queryString = vnpParams.entrySet().stream()
-                .map(e -> encode(e.getKey()) + "=" + encode(e.getValue()))
+                .filter(e -> e.getValue() != null && !e.getValue().isBlank())
+                .map(e -> encodeVnpay(e.getKey()) + "=" + encodeVnpay(e.getValue()))
                 .collect(Collectors.joining("&"));
 
         String secureHash = hmacSHA512(vnpayHashSecret, queryString);
@@ -275,20 +251,12 @@ public class PaymentService {
         sortedParams.remove("vnp_SecureHashType");
 
         String dataToSign = sortedParams.entrySet().stream()
-                // FIX LỖI Ở ĐÂY: Phải bọc e.getValue() qua hàm encode một lần nữa
-                .map(e -> encode(e.getKey()) + "=" + encode(e.getValue()))
+                .filter(e -> e.getValue() != null && !e.getValue().isBlank())
+                .map(e -> encodeVnpay(e.getKey()) + "=" + encodeVnpay(e.getValue()))
                 .collect(Collectors.joining("&"));
 
         String calculatedHash = hmacSHA512(vnpayHashSecret, dataToSign);
         return calculatedHash.equalsIgnoreCase(receivedHash);
-    }
-
-    // ── MoMo URL Builder (placeholder) ───────────────────────────────────────
-
-    private String buildMomoUrl(String txnRef, BigDecimal amount, Long bookingId) {
-        // TODO: Implement MoMo payment URL generation
-        // Tham khảo: https://developers.momo.vn/v3/docs/payment/api/payment-gateway
-        return null;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -309,13 +277,8 @@ public class PaymentService {
         }
     }
 
-    private String encode(String value) {
-        if (value == null) return "";
-        // FIX LỖI Ở ĐÂY: Replace "+" thành "%20" theo chuẩn VNPAY
-        return URLEncoder.encode(value, StandardCharsets.UTF_8)
-                .replace("+", "%20")
-                .replace("*", "%2A")
-                .replace("%7E", "~");
+    private String encodeVnpay(String value) {
+        return URLEncoder.encode(value, VNPAY_CHARSET);
     }
     /**
      * Sinh mã giao dịch nội bộ duy nhất.
@@ -329,7 +292,7 @@ public class PaymentService {
         try {
             return Payment.PaymentMethod.valueOf(method.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw ServiceException.badRequest("Invalid payment method: '" + method + "'. Must be CASH, VNPAY, or MOMO");
+            throw ServiceException.badRequest("Invalid payment method: '" + method + "'. Must be CASH or VNPAY");
         }
     }
 

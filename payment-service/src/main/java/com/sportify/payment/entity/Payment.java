@@ -36,7 +36,7 @@ public class Payment extends PanacheEntity {
     public PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     /**
-     * Transaction reference từ payment gateway (VNPay/MoMo).
+     * Transaction reference từ payment gateway (VNPay).
      * Dùng để idempotency check.
      */
     @Column(name = "txn_ref", unique = true, length = 100)
@@ -59,7 +59,7 @@ public class Payment extends PanacheEntity {
     }
 
     public enum PaymentMethod {
-        CASH, VNPAY, MOMO
+        CASH, VNPAY
     }
 
     public enum PaymentStatus {

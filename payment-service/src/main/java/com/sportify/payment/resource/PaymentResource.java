@@ -24,7 +24,7 @@ import java.util.Map;
 @Path("/api/v1/payments")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@Tag(name = "Payments", description = "Thanh toán và xử lý giao dịch (VNPAY, MoMo, Tiền mặt)")
+@Tag(name = "Payments", description = "Thanh toán và xử lý giao dịch (VNPAY, Tiền mặt)")
 public class PaymentResource {
 
     @Inject PaymentService paymentService;
@@ -43,11 +43,11 @@ public class PaymentResource {
     /**
      * POST /api/v1/payments
      * Khởi tạo thanh toán cho một booking đang PENDING.
-     * - VNPAY/MoMo: trả về paymentUrl để redirect khách hàng
+     * - VNPAY: trả về paymentUrl để redirect khách hàng
      * - CASH: chờ admin xác nhận thủ công
      */
     @POST
-    @Operation(summary = "Khởi tạo thanh toán cho booking (VNPAY | MoMo | CASH)")
+    @Operation(summary = "Khởi tạo thanh toán cho booking (VNPAY | CASH)")
     @APIResponse(responseCode = "201", description = "Thanh toán được khởi tạo, trả về paymentUrl")
     @APIResponse(responseCode = "400", description = "Booking không ở trạng thái PENDING")
     @APIResponse(responseCode = "409", description = "Booking đã được thanh toán")
@@ -155,18 +155,4 @@ public class PaymentResource {
         return Response.ok("{\"RspCode\":\"00\",\"Message\":\"Confirm Success\"}").build();
     }
 
-    // ── MoMo Callback ─────────────────────────────────────────────────────────
-
-    /**
-     * POST /api/v1/payments/momo/callback
-     * MoMo IPN webhook — server-to-server notification.
-     */
-    @POST
-    @Path("/momo/callback")
-    @PermitAll
-    @Operation(summary = "MoMo IPN webhook — xử lý thông báo thanh toán từ MoMo")
-    public Response momoCallback(PaymentDto.MomoCallbackRequest request) {
-        paymentService.processMomoCallback(request);
-        return Response.ok(ApiResponse.success("MoMo callback processed", null)).build();
-    }
 }
