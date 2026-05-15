@@ -112,6 +112,13 @@ Tài liệu này tổng hợp toàn bộ các endpoint được expose qua API G
 - `PUT /api/v1/sports/{id}`: Sửa môn (Admin). Body: `CreateSportRequest` | Data Response: `SportResponse`
 - `DELETE /api/v1/sports/{id}`: Xoá môn (Admin). Data Response: `null`
 
+**Loại sân (FieldTypes) - `/api/v1/field-types`:**
+- `GET /api/v1/field-types?sportId=`: Lấy ds loại sân (tuỳ chọn lọc theo môn). Data Response: `List<FieldTypeResponse>`
+- `GET /api/v1/field-types/{id}`: Chi tiết loại sân. Data Response: `FieldTypeResponse`
+- `POST /api/v1/field-types`: Tạo loại sân (Admin). Body: `CreateFieldTypeRequest` | Data Response: `FieldTypeResponse`
+- `PUT /api/v1/field-types/{id}`: Sửa loại sân (Admin). Body: `CreateFieldTypeRequest` | Data Response: `FieldTypeResponse`
+- `DELETE /api/v1/field-types/{id}`: Xoá loại sân (Admin). Data Response: `null`
+
 **Sân thể thao (Fields) - `/api/v1/fields`:**
 - `GET /api/v1/fields?name=&locationId=&sportId=`: Lấy ds sân. Data Response: `List<FieldResponse>`
 - `GET /api/v1/fields/{id}`: Chi tiết sân. Data Response: `FieldResponse`
@@ -120,6 +127,7 @@ Tài liệu này tổng hợp toàn bộ các endpoint được expose qua API G
 - `POST /api/v1/fields`: Tạo sân (Admin). Body: `CreateFieldRequest` | Data Response: `FieldResponse`
 - `PUT /api/v1/fields/{id}`: Cập nhật sân (Admin). Body: `CreateFieldRequest` | Data Response: `FieldResponse`
 - `PATCH /api/v1/fields/{id}/status?status=`: Đổi trạng thái (`AVAILABLE` hoặc `MAINTENANCE`) (Admin). Data Response: `null`
+- `DELETE /api/v1/fields/{id}`: Xóa sân (Admin) — yêu cầu sân phải ở trạng thái `MAINTENANCE` trước khi xóa. Data Response: `null`
 
 **Bảng giá (Prices) - `/api/v1/prices`:**
 - `GET /api/v1/prices?locationId=&fieldTypeId=`: Lấy bảng giá (Admin). Data Response: `List<PriceRuleResponse>`
@@ -166,6 +174,27 @@ Tài liệu này tổng hợp toàn bộ các endpoint được expose qua API G
   "id": 1,
   "name": "String",
   "slug": "String"
+}
+```
+
+**CreateFieldTypeRequest:**
+```json
+{
+  "sportId": 1,
+  "name": "String",
+  "playerCapacity": 10
+}
+```
+
+**FieldTypeResponse:**
+```json
+{
+  "id": 1,
+  "name": "String",
+  "playerCapacity": 10,
+  "sportId": 1,
+  "sportName": "String",
+  "sportSlug": "String"
 }
 ```
 
