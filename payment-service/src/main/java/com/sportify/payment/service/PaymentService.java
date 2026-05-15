@@ -267,7 +267,10 @@ public class PaymentService {
             mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
             byte[] bytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
-            for (byte b : bytes) sb.append(String.format("%02x", b));
+            for (byte b : bytes) {
+                // FIX LỖI Ở ĐÂY: Bắt buộc phải có & 0xff để convert chuẩn byte sang hex
+                sb.append(String.format("%02x", b & 0xff));
+            }
             return sb.toString();
         } catch (Exception e) {
             throw new RuntimeException("HMAC SHA512 signing error", e);
@@ -277,7 +280,6 @@ public class PaymentService {
     private String encodeVnpay(String value) {
         return URLEncoder.encode(value, VNPAY_CHARSET);
     }
-
     /**
      * Sinh mã giao dịch nội bộ duy nhất.
      * Format: SPF{bookingId}{timestamp5digits}

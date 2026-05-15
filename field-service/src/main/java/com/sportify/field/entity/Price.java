@@ -1,6 +1,6 @@
 package com.sportify.field.entity;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,7 +12,11 @@ import java.time.LocalTime;
 @Entity
 @Table(name = "prices")
 @Getter @Setter @NoArgsConstructor
-public class Price extends PanacheEntity {
+public class Price extends PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id", nullable = false)
@@ -41,8 +45,8 @@ public class Price extends PanacheEntity {
 
     public static Price findApplicable(Long locationId, Long fieldTypeId, LocalTime time, DayType dayType) {
         return find(
-            "location.id = ?1 AND fieldType.id = ?2 AND startTime <= ?3 AND endTime > ?3 AND dayType = ?4",
-            locationId, fieldTypeId, time, dayType
+                "location.id = ?1 AND fieldType.id = ?2 AND startTime <= ?3 AND endTime > ?3 AND dayType = ?4",
+                locationId, fieldTypeId, time, dayType
         ).firstResult();
     }
 }

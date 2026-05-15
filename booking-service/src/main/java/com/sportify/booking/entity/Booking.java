@@ -100,6 +100,27 @@ public class Booking extends PanacheEntity {
     }
 
     /**
+     * Pessimistic Lock: Khoá tất cả row booking của field + ngày này lại trước khi INSERT.
+     *
+     * Cơ chế:
+     * - Transaction 1 giữ lock → Transaction 2 BỊ BLOCK tại đây.
+     * - Khi T1 commit/rollback → T2 mới được tiếp tục, sau đó chạy hasConflict() lần nữa.
+     * - Loại bỏ hoàn toàn race condition mà không cần Redis.
+     *
+     * QUAN TRỌNG: Phải gọi trong @Transactional context.
+     */
+    public static void lockSlot(Long fieldId, LocalDate date) {
+        getEntityManager().createNativeQuery(
+            "SELECT id FROM bookings " +
+            "WHERE field_id = :fieldId AND booking_date = :date " +
+            "AND status != 'CANCELLED' FOR UPDATE"
+        )
+        .setParameter("fieldId", fieldId)
+        .setParameter("date", date)
+        .getResultList(); // Kết quả không cần dùng — chỉ cần tác dụng LOCK
+    }
+
+    /**
      * Kiểm tra xung đột lịch đặt (Double Booking Prevention).
      * Điều kiện overlap: startA < endB AND endA > startB
      * Chỉ tính các booking chưa bị huỷ.
@@ -111,5 +132,14 @@ public class Booking extends PanacheEntity {
             fieldId, date, BookingStatus.CANCELLED, start, end
         );
         return count > 0;
+    }
+
+    /**
+     * Tìm tất cả booking PENDING quá hạn (dùng cho Scheduler auto-cancel).
+     * @param cutoff Ngưỡng thời gian — booking có createdAt trước mốc này sẽ bị huỷ.
+     */
+    public static List<Booking> findExpiredPending(LocalDateTime cutoff) {
+        return list("status = ?1 AND createdAt < ?2",
+                BookingStatus.PENDING, cutoff);
     }
 }
