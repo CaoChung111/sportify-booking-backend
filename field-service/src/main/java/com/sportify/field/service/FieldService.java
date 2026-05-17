@@ -9,6 +9,7 @@ import io.quarkus.panache.common.Page;
 import io.quarkus.panache.common.Sort;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -137,6 +138,11 @@ public class FieldService {
         double totalDurationHours = 0.0;
 
         while (currentSegmentStart.isBefore(endTime)) {
+            if (isLunchBreak(currentSegmentStart)) {
+                currentSegmentStart = minTime(LocalTime.of(13, 0), endTime);
+                continue;
+            }
+
             // Tìm quy tắc giá áp dụng cho thời điểm hiện tại
             Price applicableRule = null;
             for (Price rule : priceRules) {
@@ -155,26 +161,38 @@ public class FieldService {
             // Xác định thời điểm kết thúc của phân đoạn hiện tại
             LocalTime segmentEnd = applicableRule.getEndTime();
             if (segmentEnd.isAfter(endTime)) {
-                segmentEnd = endTime; // Không vượt quá thời gian kết thúc booking
+                segmentEnd = endTime;
+            }
+            if (crossesLunchBreak(currentSegmentStart, segmentEnd)) {
+                segmentEnd = LocalTime.of(12, 0);
             }
 
             // Tính thời lượng của phân đoạn
             long segmentMinutes = Duration.between(currentSegmentStart, segmentEnd).toMinutes();
-            double segmentHours = segmentMinutes / 60.0;
+            if (segmentMinutes <= 0) {
+                currentSegmentStart = segmentEnd;
+                continue;
+            }
+            BigDecimal segmentHours = BigDecimal.valueOf(segmentMinutes)
+                    .divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP);
 
             // Tính giá cho phân đoạn và cộng vào tổng
-            BigDecimal segmentPrice = applicableRule.getPrice().multiply(BigDecimal.valueOf(segmentHours));
+            BigDecimal segmentPrice = applicableRule.getPrice().multiply(segmentHours);
             totalCalculatedPrice = totalCalculatedPrice.add(segmentPrice);
-            totalDurationHours += segmentHours;
+            totalDurationHours += segmentMinutes / 60.0;
 
             // Di chuyển đến thời điểm bắt đầu của phân đoạn tiếp theo
             currentSegmentStart = segmentEnd;
         }
 
+        if (totalDurationHours <= 0) {
+            throw ServiceException.badRequest("Booking time must include billable time outside lunch break 12:00-13:00");
+        }
+
         FieldDto.PriceResponse resp = new FieldDto.PriceResponse();
         resp.fieldId       = fieldId;
         resp.fieldName     = field.name; // field.name đã được tải thông qua toResponse
-        resp.totalPrice    = totalCalculatedPrice;
+        resp.totalPrice    = totalCalculatedPrice.setScale(2, RoundingMode.HALF_UP);
         resp.pricePerHour  = null; // Không còn khái niệm pricePerHour chung
         resp.durationHours = totalDurationHours;
         resp.currency      = "VND";
@@ -302,6 +320,18 @@ public class FieldService {
             return Price.DayType.WEEKEND;
         }
         return Price.DayType.WEEKDAY;
+    }
+
+    private boolean isLunchBreak(LocalTime time) {
+        return !time.isBefore(LocalTime.of(12, 0)) && time.isBefore(LocalTime.of(13, 0));
+    }
+
+    private boolean crossesLunchBreak(LocalTime startTime, LocalTime endTime) {
+        return startTime.isBefore(LocalTime.of(12, 0)) && endTime.isAfter(LocalTime.of(12, 0));
+    }
+
+    private LocalTime minTime(LocalTime first, LocalTime second) {
+        return first.isBefore(second) ? first : second;
     }
 
     private String resolveFieldSort(String sortBy) {
