@@ -23,6 +23,22 @@ public class FieldDto {
         @NotBlank(message = "Field name is required")
         @Size(max = 50, message = "Field name must not exceed 50 characters")
         public String name;
+
+        @Size(max = 500, message = "Image URL must not exceed 500 characters")
+        public String imageUrl;
+
+        public String description;
+    }
+
+    @Data
+    public static class PageResponse<T> {
+        public java.util.List<T> items;
+        public int page;
+        public int size;
+        public long totalItems;
+        public int totalPages;
+        public String sortBy;
+        public String sortDir;
     }
 
     // ── Field Response ────────────────────────────────────────────────────────
@@ -32,6 +48,8 @@ public class FieldDto {
         public Long id;
         public String name;
         public String status;
+        public String imageUrl;
+        public String description;
 
         // Location info
         public Long   locationId;

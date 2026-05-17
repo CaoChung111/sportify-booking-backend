@@ -105,7 +105,7 @@ public class PaymentService {
             case VNPAY -> paymentUrl = buildVnpayUrl(
                     txnRef, booking.totalPrice(),
                     "Sportify booking " + request.bookingId);
-            case CASH  -> { /* Cash: admin xác nhận thủ công, không có URL */ }
+            case CASH  -> bookingServiceClient.markBookingCashPending(request.bookingId);
         }
 
         return toResponse(payment, paymentUrl);
@@ -229,6 +229,19 @@ public class PaymentService {
 
         if (payment.paymentStatus != Payment.PaymentStatus.SUCCESS) {
             payment.paymentStatus = Payment.PaymentStatus.SUCCESS;
+            payment.persist();
+        }
+
+        return toResponse(payment, null);
+    }
+
+    @Transactional
+    public PaymentDto.PaymentResponse cancelByBookingId(Long bookingId) {
+        Payment payment = Payment.findByBookingId(bookingId);
+        if (payment == null) throw ServiceException.notFound("Payment for booking", bookingId);
+
+        if (payment.paymentStatus != Payment.PaymentStatus.SUCCESS) {
+            payment.paymentStatus = Payment.PaymentStatus.CANCELLED;
             payment.persist();
         }
 

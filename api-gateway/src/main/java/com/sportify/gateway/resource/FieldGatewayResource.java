@@ -8,9 +8,22 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.UUID;
 
 @Path("/api/v1")
 @Produces(MediaType.APPLICATION_JSON)
@@ -22,6 +35,11 @@ public class FieldGatewayResource {
     @RestClient
     FieldServiceClient fieldClient;
 
+    @ConfigProperty(name = "quarkus.rest-client.field-service.url")
+    String fieldServiceUrl;
+
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+
     // ── Fields ────────────────────────────────────────────────────────────────
 
     @GET
@@ -30,8 +48,13 @@ public class FieldGatewayResource {
     @Operation(summary = "Lấy danh sách sân")
     public Response getFields(@QueryParam("name") String name,
                               @QueryParam("locationId") Long locationId,
-                              @QueryParam("sportId") Long sportId) {
-        return fieldClient.getFields(name, locationId, sportId);
+                              @QueryParam("sportId") Long sportId,
+                              @QueryParam("status") String status,
+                              @QueryParam("page") Integer page,
+                              @QueryParam("size") Integer size,
+                              @QueryParam("sortBy") String sortBy,
+                              @QueryParam("sortDir") String sortDir) {
+        return fieldClient.getFields(name, locationId, sportId, status, page, size, sortBy, sortDir);
     }
 
     @GET
@@ -74,6 +97,65 @@ public class FieldGatewayResource {
     public Response updateField(@PathParam("id") Long id,
                                 @Context HttpHeaders headers, Object body) {
         return fieldClient.updateField(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION), body);
+    }
+
+    @POST
+    @Path("/fields/{id}/image")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Operation(summary = "Upload áº£nh sÃ¢n (Admin)")
+    public Response uploadFieldImage(@PathParam("id") Long id,
+                                     @Context HttpHeaders headers,
+                                     @RestForm("file") FileUpload file) {
+        try {
+            String boundary = "----SportifyGatewayBoundary" + UUID.randomUUID();
+            byte[] body = multipartBody(boundary, file);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(fieldServiceUrl + "/api/v1/upload/image"))
+                    .header(HttpHeaders.AUTHORIZATION, headers.getHeaderString(HttpHeaders.AUTHORIZATION))
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.MULTIPART_FORM_DATA + "; boundary=" + boundary)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            return Response.status(response.statusCode())
+                    .type(MediaType.APPLICATION_JSON)
+                    .entity(response.body())
+                    .build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"success\":false,\"message\":\"Upload failed: " + e.getMessage() + "\"}")
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+        }
+    }
+
+    @POST
+    @Path("/upload/image")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Operation(summary = "Upload áº£nh sÃ¢n (Admin)")
+    public Response uploadImage(@Context HttpHeaders headers,
+                                @RestForm("file") FileUpload file) {
+        try {
+            String boundary = "----SportifyGatewayBoundary" + UUID.randomUUID();
+            byte[] body = multipartBody(boundary, file);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(fieldServiceUrl + "/api/v1/upload/image"))
+                    .header(HttpHeaders.AUTHORIZATION, headers.getHeaderString(HttpHeaders.AUTHORIZATION))
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.MULTIPART_FORM_DATA + "; boundary=" + boundary)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            return Response.status(response.statusCode())
+                    .type(MediaType.APPLICATION_JSON)
+                    .entity(response.body())
+                    .build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"success\":false,\"message\":\"Upload failed: " + e.getMessage() + "\"}")
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+        }
     }
 
     @PATCH
@@ -232,6 +314,15 @@ public class FieldGatewayResource {
     }
 
     @GET
+    @Path("/prices/table")
+    @PermitAll
+    @Operation(summary = "Lay bang gia theo locationId va fieldTypeId")
+    public Response getPriceTable(@QueryParam("locationId") Long locationId,
+                                  @QueryParam("fieldTypeId") Long fieldTypeId) {
+        return fieldClient.getPriceTable(locationId, fieldTypeId);
+    }
+
+    @GET
     @Path("/prices/{id}")
     @Operation(summary = "Lấy chi tiết quy tắc giá (Admin)")
     public Response getPriceById(@PathParam("id") Long id, @Context HttpHeaders headers) {
@@ -258,5 +349,17 @@ public class FieldGatewayResource {
     @Operation(summary = "Xóa quy tắc giá (Admin)")
     public Response deletePrice(@PathParam("id") Long id, @Context HttpHeaders headers) {
         return fieldClient.deletePrice(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
+    private byte[] multipartBody(String boundary, FileUpload file) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        String fileName = file.fileName() != null ? file.fileName() : "field-image";
+        String contentType = file.contentType() != null ? file.contentType() : "application/octet-stream";
+        output.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
+        output.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+        output.write(("Content-Type: " + contentType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        output.write(Files.readAllBytes(file.uploadedFile()));
+        output.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        return output.toByteArray();
     }
 }

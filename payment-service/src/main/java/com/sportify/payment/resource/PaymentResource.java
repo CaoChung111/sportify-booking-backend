@@ -126,6 +126,15 @@ public class PaymentResource {
         return Response.ok(ApiResponse.success("Cash payment marked as SUCCESS", payment)).build();
     }
 
+    @PATCH
+    @Path("/booking/{bookingId}/cancel")
+    @PermitAll
+    @Operation(summary = "[Internal] Mark non-success payment as failed when booking is cancelled")
+    public Response cancelByBookingId(@PathParam("bookingId") Long bookingId) {
+        PaymentDto.PaymentResponse payment = paymentService.cancelByBookingId(bookingId);
+        return Response.ok(ApiResponse.success("Payment cancelled", payment)).build();
+    }
+
     @GET
     @Path("/vnpay/callback")
     @PermitAll

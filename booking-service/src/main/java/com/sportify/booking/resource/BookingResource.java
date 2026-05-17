@@ -179,6 +179,15 @@ public class BookingResource {
     }
 
     @PATCH
+    @Path("/{id}/mark-cash-pending")
+    @PermitAll
+    @Operation(summary = "[Internal] Mark booking as cash payment at venue")
+    public Response markCashPending(@PathParam("id") Long id) {
+        bookingService.markCashPendingPayment(id);
+        return Response.ok(ApiResponse.success("Booking waiting for cash payment at venue", null)).build();
+    }
+
+    @PATCH
     @Path("/{id}/complete")
     @PermitAll
     @Operation(summary = "[Internal/Admin] Đánh dấu booking đã hoàn thành")

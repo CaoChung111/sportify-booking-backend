@@ -3,6 +3,7 @@ package com.sportify.field.resource;
 import com.sportify.common.dto.ApiResponse;
 import com.sportify.field.dto.PriceDto;
 import com.sportify.field.service.PriceService;
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -35,6 +36,16 @@ public class PriceResource {
     public Response getAll(@QueryParam("locationId")  Long locationId,
                            @QueryParam("fieldTypeId") Long fieldTypeId) {
         List<PriceDto.PriceRuleResponse> list = priceService.findAll(locationId, fieldTypeId);
+        return Response.ok(ApiResponse.success(list)).build();
+    }
+
+    @GET
+    @Path("/table")
+    @PermitAll
+    @Operation(summary = "Lay bang gia theo locationId va fieldTypeId")
+    public Response getPriceTable(@QueryParam("locationId") Long locationId,
+                                  @QueryParam("fieldTypeId") Long fieldTypeId) {
+        List<PriceDto.PriceRuleResponse> list = priceService.findPriceTable(locationId, fieldTypeId);
         return Response.ok(ApiResponse.success(list)).build();
     }
 

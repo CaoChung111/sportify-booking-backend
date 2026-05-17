@@ -46,6 +46,12 @@ public interface BookingServiceClient {
     ApiResponse<Void> markBookingPaid(@PathParam("id") Long bookingId);
 
     @PATCH
+    @Path("/{id}/mark-cash-pending")
+    @Retry(maxRetries = 3, delay = 500)
+    @Timeout(5000)
+    ApiResponse<Void> markBookingCashPending(@PathParam("id") Long bookingId);
+
+    @PATCH
     @Path("/{id}/confirm")
     @Retry(maxRetries = 3, delay = 500)
     @Timeout(5000)

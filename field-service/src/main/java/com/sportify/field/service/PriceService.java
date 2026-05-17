@@ -45,6 +45,22 @@ public class PriceService {
         return toResponse(price);
     }
 
+    public List<PriceDto.PriceRuleResponse> findPriceTable(Long locationId, Long fieldTypeId) {
+        if (locationId == null) {
+            throw ServiceException.badRequest("locationId is required");
+        }
+        if (fieldTypeId == null) {
+            throw ServiceException.badRequest("fieldTypeId is required");
+        }
+
+        return Price.<Price>list(
+                        "location.id = ?1 AND fieldType.id = ?2 ORDER BY dayType ASC, startTime ASC",
+                        locationId, fieldTypeId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     // ── Admin CRUD ────────────────────────────────────────────────────────────
 
     /**

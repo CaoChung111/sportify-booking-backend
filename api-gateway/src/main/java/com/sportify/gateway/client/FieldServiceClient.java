@@ -17,7 +17,12 @@ public interface FieldServiceClient {
     @Path("/fields")
     Response getFields(@QueryParam("name") String name,
                        @QueryParam("locationId") Long locationId,
-                       @QueryParam("sportId") Long sportId);
+                       @QueryParam("sportId") Long sportId,
+                       @QueryParam("status") String status,
+                       @QueryParam("page") Integer page,
+                       @QueryParam("size") Integer size,
+                       @QueryParam("sortBy") String sortBy,
+                       @QueryParam("sortDir") String sortDir);
 
     @GET
     @Path("/fields/{id}")
@@ -141,6 +146,11 @@ public interface FieldServiceClient {
     Response getPrices(@HeaderParam("Authorization") String authorization,
                        @QueryParam("locationId") Long locationId,
                        @QueryParam("fieldTypeId") Long fieldTypeId);
+
+    @GET
+    @Path("/prices/table")
+    Response getPriceTable(@QueryParam("locationId") Long locationId,
+                           @QueryParam("fieldTypeId") Long fieldTypeId);
 
     @GET
     @Path("/prices/{id}")

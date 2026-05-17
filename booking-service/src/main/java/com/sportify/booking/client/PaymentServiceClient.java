@@ -25,6 +25,10 @@ public interface PaymentServiceClient {
     @Path("/booking/{bookingId}/confirm-cash")
     ApiResponse<PaymentDetail> confirmCashByBookingId(@PathParam("bookingId") Long bookingId);
 
+    @PATCH
+    @Path("/booking/{bookingId}/cancel")
+    ApiResponse<PaymentDetail> cancelByBookingId(@PathParam("bookingId") Long bookingId);
+
     record PaymentDetail(
             Long id,
             Long bookingId,

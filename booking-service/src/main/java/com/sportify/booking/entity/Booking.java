@@ -84,6 +84,7 @@ public class Booking extends PanacheEntity {
 
     public enum BookingStatus {
         PENDING,    // Đặt chỗ, chờ thanh toán
+        CASH_PENDING_PAYMENT,
         PAID_PENDING_CONFIRMATION,
         CONFIRMED,  // Đã thanh toán, chờ chơi
         COMPLETED,  // Đã chơi xong
@@ -147,7 +148,7 @@ public class Booking extends PanacheEntity {
             "fieldId = ?1 AND bookingDate = ?2 " +
             "AND (startTime < ?4 AND endTime > ?3) " + // Điều kiện overlap
             "AND ( " +
-            "  status = 'PAID_PENDING_CONFIRMATION' OR status = 'CONFIRMED' OR status = 'COMPLETED' OR " +
+            "  status = 'CASH_PENDING_PAYMENT' OR status = 'PAID_PENDING_CONFIRMATION' OR status = 'CONFIRMED' OR status = 'COMPLETED' OR " +
             "  (status = 'PENDING' AND createdAt >= ?5) " +
             ")",
             fieldId, date, start, end, pendingCutoff

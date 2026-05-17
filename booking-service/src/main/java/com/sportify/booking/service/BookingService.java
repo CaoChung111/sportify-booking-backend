@@ -190,6 +190,7 @@ public class BookingService {
 
         booking.status = Booking.BookingStatus.CANCELLED;
         booking.persist();
+        cancelPaymentIfNeeded(booking.id);
     }
 
     // ── Xác Nhận Booking (Internal — gọi bởi Payment Service) ────────────────
@@ -201,12 +202,29 @@ public class BookingService {
      *
      * Luồng: Payment SUCCESS → Payment Service gọi API này → Booking = CONFIRMED
      */
+    private void cancelPaymentIfNeeded(Long bookingId) {
+        try {
+            var paymentResponse = paymentServiceClient.getByBookingId(bookingId);
+            if (paymentResponse == null || paymentResponse.getData() == null) {
+                return;
+            }
+
+            var payment = paymentResponse.getData();
+            if (!"SUCCESS".equalsIgnoreCase(payment.paymentStatus())) {
+                paymentServiceClient.cancelByBookingId(bookingId);
+            }
+        } catch (Exception e) {
+            throw ServiceException.badRequest("Cannot cancel payment for booking " + bookingId);
+        }
+    }
+
     @Transactional
     public void confirm(Long id) {
         Booking booking = Booking.findById(id);
         if (booking == null) throw ServiceException.notFound("Booking", id);
 
         if (booking.status != Booking.BookingStatus.PENDING &&
+                booking.status != Booking.BookingStatus.CASH_PENDING_PAYMENT &&
                 booking.status != Booking.BookingStatus.PAID_PENDING_CONFIRMATION) {
             throw ServiceException.badRequest(
                     "Booking cannot be confirmed: current status is " + booking.status);
@@ -251,6 +269,24 @@ public class BookingService {
         }
 
         booking.status = Booking.BookingStatus.PAID_PENDING_CONFIRMATION;
+        booking.persist();
+    }
+
+    @Transactional
+    public void markCashPendingPayment(Long id) {
+        Booking booking = Booking.findById(id);
+        if (booking == null) throw ServiceException.notFound("Booking", id);
+
+        if (booking.status == Booking.BookingStatus.CASH_PENDING_PAYMENT) {
+            return;
+        }
+
+        if (booking.status != Booking.BookingStatus.PENDING) {
+            throw ServiceException.badRequest(
+                    "Booking cannot be marked as cash pending payment: current status is " + booking.status);
+        }
+
+        booking.status = Booking.BookingStatus.CASH_PENDING_PAYMENT;
         booking.persist();
     }
 

@@ -2,6 +2,7 @@ package com.sportify.field.resource;
 
 import com.sportify.common.dto.ApiResponse;
 import com.sportify.field.dto.FieldDto;
+import com.sportify.field.service.CloudinaryService;
 import com.sportify.field.service.FieldService;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
@@ -13,11 +14,13 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
-import java.util.List;
+import java.util.Map;
 
 @Path("/api/v1/fields")
 @Produces(MediaType.APPLICATION_JSON)
@@ -27,6 +30,9 @@ public class FieldResource {
 
     @Inject
     FieldService fieldService;
+
+    @Inject
+    CloudinaryService cloudinaryService;
 
     /**
      * GET /api/v1/fields
@@ -41,9 +47,15 @@ public class FieldResource {
             @Parameter(description = "Lọc theo ID địa điểm")
             @QueryParam("locationId") Long locationId,
             @Parameter(description = "Lọc theo ID môn thể thao")
-            @QueryParam("sportId") Long sportId) {
+            @QueryParam("sportId") Long sportId,
+            @QueryParam("status") String status,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size,
+            @QueryParam("sortBy") @DefaultValue("id") String sortBy,
+            @QueryParam("sortDir") @DefaultValue("asc") String sortDir) {
 
-        List<FieldDto.FieldResponse> fields = fieldService.findAll(name, locationId, sportId);
+        FieldDto.PageResponse<FieldDto.FieldResponse> fields =
+                fieldService.findAll(name, locationId, sportId, status, page, size, sortBy, sortDir);
         return Response.ok(ApiResponse.success(fields)).build();
     }
 
@@ -132,6 +144,17 @@ public class FieldResource {
                            @Valid FieldDto.CreateFieldRequest request) {
         FieldDto.FieldResponse updated = fieldService.update(id, request);
         return Response.ok(ApiResponse.success("Field updated successfully", updated)).build();
+    }
+
+    @POST
+    @Path("/{id}/image")
+    @RolesAllowed("ADMIN")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Operation(summary = "Upload áº£nh sÃ¢n lÃªn Cloudinary (Admin)")
+    public Response uploadImage(@PathParam("id") Long id,
+                                @RestForm("file") FileUpload file) {
+        String imageUrl = cloudinaryService.uploadFieldImage(file);
+        return Response.ok(ApiResponse.success("Image uploaded successfully", Map.of("imageUrl", imageUrl))).build();
     }
 
     /**

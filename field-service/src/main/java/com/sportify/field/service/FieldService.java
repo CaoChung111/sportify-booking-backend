@@ -5,14 +5,17 @@ import com.sportify.field.dto.FieldDto;
 import com.sportify.field.entity.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @ApplicationScoped
 public class FieldService {
@@ -22,16 +25,59 @@ public class FieldService {
     /**
      * Lấy danh sách sân, lọc theo tên, location và/hoặc sport.
      */
-    public List<FieldDto.FieldResponse> findAll(String name, Long locationId, Long sportId) {
-        List<Field> fields = (locationId != null)
-                ? Field.findByLocation(locationId)
-                : Field.<Field>listAll();
+    public FieldDto.PageResponse<FieldDto.FieldResponse> findAll(
+            String name, Long locationId, Long sportId, String status,
+            int page, int size, String sortBy, String sortDir) {
 
-        return fields.stream()
-                .filter(f -> name == null || name.isBlank() || f.name.toLowerCase().contains(name.toLowerCase().trim()))
-                .filter(f -> sportId == null || f.fieldType.sport.id.equals(sportId))
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        String safeSortBy = resolveFieldSort(sortBy);
+        Sort.Direction direction = "desc".equalsIgnoreCase(sortDir)
+                ? Sort.Direction.Descending
+                : Sort.Direction.Ascending;
+
+        StringBuilder query = new StringBuilder("1 = 1");
+        Map<String, Object> params = new HashMap<>();
+
+        if (name != null && !name.isBlank()) {
+            query.append(" and lower(name) like :name");
+            params.put("name", "%" + name.toLowerCase().trim() + "%");
+        }
+        if (locationId != null) {
+            query.append(" and location.id = :locationId");
+            params.put("locationId", locationId);
+        }
+        if (sportId != null) {
+            query.append(" and fieldType.sport.id = :sportId");
+            params.put("sportId", sportId);
+        }
+        if (status != null && !status.isBlank()) {
+            query.append(" and status = :status");
+            try {
+                params.put("status", Field.Status.valueOf(status.toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw ServiceException.badRequest("Invalid status: '" + status + "'. Must be AVAILABLE or MAINTENANCE");
+            }
+        }
+
+        var panacheQuery = Field.find(query.toString(), Sort.by(safeSortBy, direction), params);
+        long totalItems = panacheQuery.count();
+        List<FieldDto.FieldResponse> items = panacheQuery
+                .page(Page.of(safePage, safeSize))
+                .<Field>list()
+                .stream()
                 .map(this::toResponse)
-                .collect(Collectors.toList());
+                .toList();
+
+        FieldDto.PageResponse<FieldDto.FieldResponse> response = new FieldDto.PageResponse<>();
+        response.items = items;
+        response.page = safePage;
+        response.size = safeSize;
+        response.totalItems = totalItems;
+        response.totalPages = (int) Math.ceil((double) totalItems / safeSize);
+        response.sortBy = safeSortBy;
+        response.sortDir = direction == Sort.Direction.Descending ? "desc" : "asc";
+        return response;
     }
 
     /**
@@ -160,6 +206,8 @@ public class FieldService {
 
         Field field    = new Field();
         field.name     = request.name;
+        field.imageUrl = request.imageUrl;
+        field.description = request.description;
         field.location = location;
         field.fieldType = fieldType;
         field.status   = Field.Status.AVAILABLE;
@@ -177,6 +225,8 @@ public class FieldService {
         if (field == null) throw ServiceException.notFound("Field", id);
 
         if (request.name != null) field.name = request.name;
+        if (request.imageUrl != null) field.imageUrl = request.imageUrl;
+        if (request.description != null) field.description = request.description;
 
         if (request.locationId != null) {
             Location location = Location.findById(request.locationId);
@@ -214,6 +264,15 @@ public class FieldService {
         field.persist();
     }
 
+    @Transactional
+    public FieldDto.FieldResponse updateImage(Long id, String imageUrl) {
+        Field field = Field.findById(id);
+        if (field == null) throw ServiceException.notFound("Field", id);
+        field.imageUrl = imageUrl;
+        field.persist();
+        return toResponse(field);
+    }
+
     /**
      * Xóa sân.
      * Quy tắc an toàn:
@@ -245,11 +304,27 @@ public class FieldService {
         return Price.DayType.WEEKDAY;
     }
 
+    private String resolveFieldSort(String sortBy) {
+        if (sortBy == null || sortBy.isBlank()) {
+            return "id";
+        }
+        return switch (sortBy) {
+            case "id", "name", "status" -> sortBy;
+            case "locationId" -> "location.id";
+            case "fieldTypeId" -> "fieldType.id";
+            case "sportId" -> "fieldType.sport.id";
+            default -> throw ServiceException.badRequest(
+                    "Invalid sortBy: '" + sortBy + "'. Allowed: id, name, status, locationId, fieldTypeId, sportId");
+        };
+    }
+
     private FieldDto.FieldResponse toResponse(Field field) {
         FieldDto.FieldResponse r = new FieldDto.FieldResponse();
         r.id              = field.id;
         r.name            = field.name;
         r.status          = field.status.name();
+        r.imageUrl        = field.imageUrl;
+        r.description     = field.description;
 
         // Location
         r.locationId      = field.location.id;

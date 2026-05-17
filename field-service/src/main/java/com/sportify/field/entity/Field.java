@@ -27,6 +27,12 @@ public class Field extends PanacheEntityBase {
     @Column(nullable = false, length = 50)
     public String name;
 
+    @Column(name = "image_url", length = 500)
+    public String imageUrl;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    public String description;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     public Status status = Status.AVAILABLE;
