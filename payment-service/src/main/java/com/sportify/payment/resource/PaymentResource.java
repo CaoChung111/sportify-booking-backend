@@ -127,6 +127,15 @@ public class PaymentResource {
     }
 
     @PATCH
+    @Path("/booking/{bookingId}/confirm")
+    @PermitAll
+    @Operation(summary = "[Internal] Mark payment as successful by Booking ID after admin confirmation")
+    public Response confirmByBookingId(@PathParam("bookingId") Long bookingId) {
+        PaymentDto.PaymentResponse payment = paymentService.confirmByBookingId(bookingId);
+        return Response.ok(ApiResponse.success("Payment marked as SUCCESS", payment)).build();
+    }
+
+    @PATCH
     @Path("/booking/{bookingId}/cancel")
     @PermitAll
     @Operation(summary = "[Internal] Mark non-success payment as failed when booking is cancelled")

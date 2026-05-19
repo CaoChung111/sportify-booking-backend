@@ -49,13 +49,17 @@ public class DashboardService {
                 Booking.BookingStatus.CASH_PENDING_PAYMENT);
         overview.cancelledBookings = countByStatus(from, to, Booking.BookingStatus.CANCELLED);
         overview.expectedRevenue = sumExpectedRevenue(from, to);
+        overview.actualRevenue = sumActualRevenue(from, to);
         overview.bookingsByStatus = bookingsByStatus(from, to);
         return overview;
     }
 
     public List<DashboardDto.DailyBookingTrend> getDailyTrends(LocalDate from, LocalDate to) {
         List<Object[]> rows = entityManager.createQuery("""
-                select b.bookingDate, count(b), coalesce(sum(b.totalPrice), 0)
+                select b.bookingDate,
+                       count(b),
+                       coalesce(sum(b.totalPrice), 0),
+                       coalesce(sum(case when b.status in :actualStatuses then b.totalPrice else 0 end), 0)
                 from Booking b
                 where b.bookingDate between :from and :to
                   and b.status <> :cancelled
@@ -65,6 +69,7 @@ public class DashboardService {
                 .setParameter("from", from)
                 .setParameter("to", to)
                 .setParameter("cancelled", Booking.BookingStatus.CANCELLED)
+                .setParameter("actualStatuses", actualRevenueStatuses())
                 .getResultList();
 
         Map<LocalDate, DashboardDto.DailyBookingTrend> byDate = new LinkedHashMap<>();
@@ -73,6 +78,7 @@ public class DashboardService {
             item.date = date;
             item.bookingCount = 0;
             item.expectedRevenue = BigDecimal.ZERO;
+            item.actualRevenue = BigDecimal.ZERO;
             byDate.put(date, item);
         }
 
@@ -82,6 +88,7 @@ public class DashboardService {
             if (item != null) {
                 item.bookingCount = ((Number) row[1]).longValue();
                 item.expectedRevenue = toBigDecimal(row[2]);
+                item.actualRevenue = toBigDecimal(row[3]);
             }
         }
         return new ArrayList<>(byDate.values());
@@ -89,7 +96,12 @@ public class DashboardService {
 
     public List<DashboardDto.TopField> getTopFields(LocalDate from, LocalDate to, int limit) {
         List<Object[]> rows = entityManager.createQuery("""
-                select b.fieldId, b.fieldName, b.locationName, count(b), coalesce(sum(b.totalPrice), 0)
+                select b.fieldId,
+                       b.fieldName,
+                       b.locationName,
+                       count(b),
+                       coalesce(sum(b.totalPrice), 0),
+                       coalesce(sum(case when b.status in :actualStatuses then b.totalPrice else 0 end), 0)
                 from Booking b
                 where b.bookingDate between :from and :to
                   and b.status <> :cancelled
@@ -99,6 +111,7 @@ public class DashboardService {
                 .setParameter("from", from)
                 .setParameter("to", to)
                 .setParameter("cancelled", Booking.BookingStatus.CANCELLED)
+                .setParameter("actualStatuses", actualRevenueStatuses())
                 .setMaxResults(limit)
                 .getResultList();
 
@@ -110,6 +123,7 @@ public class DashboardService {
             item.locationName = (String) row[2];
             item.bookingCount = ((Number) row[3]).longValue();
             item.expectedRevenue = toBigDecimal(row[4]);
+            item.actualRevenue = toBigDecimal(row[5]);
             result.add(item);
         }
         return result;
@@ -139,6 +153,26 @@ public class DashboardService {
                         Booking.BookingStatus.COMPLETED))
                 .getSingleResult();
         return toBigDecimal(value);
+    }
+
+    private BigDecimal sumActualRevenue(LocalDate from, LocalDate to) {
+        Object value = entityManager.createQuery("""
+                select coalesce(sum(b.totalPrice), 0)
+                from Booking b
+                where b.bookingDate between :from and :to
+                  and b.status in :statuses
+                """)
+                .setParameter("from", from)
+                .setParameter("to", to)
+                .setParameter("statuses", actualRevenueStatuses())
+                .getSingleResult();
+        return toBigDecimal(value);
+    }
+
+    private List<Booking.BookingStatus> actualRevenueStatuses() {
+        return List.of(
+                Booking.BookingStatus.CONFIRMED,
+                Booking.BookingStatus.COMPLETED);
     }
 
     private Map<String, Long> bookingsByStatus(LocalDate from, LocalDate to) {

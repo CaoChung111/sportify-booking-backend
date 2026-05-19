@@ -18,6 +18,7 @@ public class DashboardDto {
         public long cashPendingPayment;
         public long cancelledBookings;
         public BigDecimal expectedRevenue;
+        public BigDecimal actualRevenue;
         public Map<String, Long> bookingsByStatus;
     }
 
@@ -26,6 +27,7 @@ public class DashboardDto {
         public LocalDate date;
         public long bookingCount;
         public BigDecimal expectedRevenue;
+        public BigDecimal actualRevenue;
     }
 
     @Data
@@ -35,6 +37,7 @@ public class DashboardDto {
         public String locationName;
         public long bookingCount;
         public BigDecimal expectedRevenue;
+        public BigDecimal actualRevenue;
     }
 
     @Data

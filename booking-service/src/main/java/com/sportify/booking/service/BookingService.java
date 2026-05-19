@@ -232,12 +232,12 @@ public class BookingService {
 
         booking.status = Booking.BookingStatus.CONFIRMED;
         booking.persist();
-        confirmCashPaymentIfNeeded(booking.id);
+        confirmPaymentIfNeeded(booking.id);
     }
 
     // ── Hoàn thành Booking (cập nhật sau khi chơi xong) ──────────────────────
 
-    private void confirmCashPaymentIfNeeded(Long bookingId) {
+    private void confirmPaymentIfNeeded(Long bookingId) {
         try {
             var paymentResponse = paymentServiceClient.getByBookingId(bookingId);
             if (paymentResponse == null || paymentResponse.getData() == null) {
@@ -245,12 +245,11 @@ public class BookingService {
             }
 
             var payment = paymentResponse.getData();
-            if ("CASH".equalsIgnoreCase(payment.paymentMethod())
-                    && !"SUCCESS".equalsIgnoreCase(payment.paymentStatus())) {
-                paymentServiceClient.confirmCashByBookingId(bookingId);
+            if (!"SUCCESS".equalsIgnoreCase(payment.paymentStatus())) {
+                paymentServiceClient.confirmByBookingId(bookingId);
             }
         } catch (Exception e) {
-            throw ServiceException.badRequest("Cannot confirm CASH payment for booking " + bookingId);
+            throw ServiceException.badRequest("Cannot confirm payment for booking " + bookingId);
         }
     }
 

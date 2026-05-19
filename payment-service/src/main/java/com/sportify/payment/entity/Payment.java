@@ -63,7 +63,7 @@ public class Payment extends PanacheEntity {
     }
 
     public enum PaymentStatus {
-        PENDING, SUCCESS, FAILED, CANCELLED, REFUNDED
+        PENDING, PAID_PENDING_CONFIRMATION, SUCCESS, FAILED, CANCELLED, REFUNDED
     }
 
     // ── Finders ────────────────────────────────────────────────────────────

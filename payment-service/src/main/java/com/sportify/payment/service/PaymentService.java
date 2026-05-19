@@ -155,6 +155,14 @@ public class PaymentService {
         // Idempotency: đã xử lý rồi → bỏ qua
         if (payment.paymentStatus == Payment.PaymentStatus.SUCCESS) {
             try {
+                bookingServiceClient.confirmBooking(payment.bookingId);
+            } catch (Exception e) {
+                // Keep callback idempotent; a later retry can reconcile booking status.
+            }
+            return "already_processed";
+        }
+        if (payment.paymentStatus == Payment.PaymentStatus.PAID_PENDING_CONFIRMATION) {
+            try {
                 bookingServiceClient.markBookingPaid(payment.bookingId);
             } catch (Exception e) {
                 // Keep callback idempotent; a later retry can reconcile booking status.
@@ -172,7 +180,7 @@ public class PaymentService {
 
         if ("00".equals(responseCode)) {
             // Thanh toán thành công
-            payment.paymentStatus = Payment.PaymentStatus.SUCCESS;
+            payment.paymentStatus = Payment.PaymentStatus.PAID_PENDING_CONFIRMATION;
             payment.persist();
 
             // Gọi booking-service xác nhận đơn
@@ -226,6 +234,19 @@ public class PaymentService {
         if (payment.paymentMethod != Payment.PaymentMethod.CASH) {
             return toResponse(payment, null);
         }
+
+        if (payment.paymentStatus != Payment.PaymentStatus.SUCCESS) {
+            payment.paymentStatus = Payment.PaymentStatus.SUCCESS;
+            payment.persist();
+        }
+
+        return toResponse(payment, null);
+    }
+
+    @Transactional
+    public PaymentDto.PaymentResponse confirmByBookingId(Long bookingId) {
+        Payment payment = Payment.findByBookingId(bookingId);
+        if (payment == null) throw ServiceException.notFound("Payment for booking", bookingId);
 
         if (payment.paymentStatus != Payment.PaymentStatus.SUCCESS) {
             payment.paymentStatus = Payment.PaymentStatus.SUCCESS;
