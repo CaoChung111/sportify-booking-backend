@@ -4,6 +4,7 @@ import com.sportify.booking.client.FieldServiceClient;
 import com.sportify.booking.client.PaymentServiceClient;
 import com.sportify.booking.dto.BookingDto;
 import com.sportify.booking.entity.Booking;
+import com.sportify.booking.resource.BookingSseResource;
 import com.sportify.common.exception.ServiceException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -28,6 +29,10 @@ public class BookingService {
     @Inject
     @RestClient
     PaymentServiceClient paymentServiceClient;
+
+    @Inject
+    BookingSseResource bookingSseResource;
+
     // ── Check Availability ───────────────────────────────────────────────────
 
     /**
@@ -59,6 +64,7 @@ public class BookingService {
      * 4. Kiểm tra xung đột lịch trong DB nội bộ (Double Booking Prevention)
      * 5. Gọi field-service → tính giá (Dynamic Pricing)
      * 6. Tạo Booking với status = PENDING
+     * 7. Push SSE events (slot-update + new-booking-notification)
      */
     @Transactional
     public BookingDto.BookingResponse create(Long userId, BookingDto.CreateBookingRequest request) {
@@ -118,7 +124,21 @@ public class BookingService {
         booking.note          = request.note;
         booking.persist();
 
-        return toResponse(booking);
+        BookingDto.BookingResponse response = toResponse(booking);
+
+        // Bước 7: SSE — Push slot-update event (slot vừa bị chiếm)
+        bookingSseResource.pushSlotUpdate(
+                booking.fieldId,
+                booking.bookingDate,
+                booking.startTime,
+                booking.endTime,
+                "PENDING"
+        );
+
+        // SSE — Push new-booking-notification tới admin/chủ sân
+        bookingSseResource.pushNewBookingNotification(response);
+
+        return response;
     }
 
     // ── Lấy Danh Sách Đặt Sân Của User ───────────────────────────────────────
@@ -126,6 +146,13 @@ public class BookingService {
     public List<BookingDto.BookingResponse> getMyBookings(Long userId) {
         return Booking.findByUserId(userId).stream()
                 .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<BookingDto.BookingResponse> getAllBookings() {
+        return Booking.listAll().stream()
+                .map(b -> toResponse((Booking) b))
+                .sorted((b1, b2) -> b2.createdAt.compareTo(b1.createdAt)) // Sort descending by createdAt
                 .collect(Collectors.toList());
     }
 
@@ -191,6 +218,15 @@ public class BookingService {
         booking.status = Booking.BookingStatus.CANCELLED;
         booking.persist();
         cancelPaymentIfNeeded(booking.id);
+
+        // SSE: Push slot-update event (slot vừa được giải phóng)
+        bookingSseResource.pushSlotUpdate(
+                booking.fieldId,
+                booking.bookingDate,
+                booking.startTime,
+                booking.endTime,
+                "CANCELLED"
+        );
     }
 
     // ── Xác Nhận Booking (Internal — gọi bởi Payment Service) ────────────────

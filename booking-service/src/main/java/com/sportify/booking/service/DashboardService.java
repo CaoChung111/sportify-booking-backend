@@ -38,9 +38,11 @@ public class DashboardService {
         overview.upcomingBookings = Booking.count(
                 "bookingDate >= ?1 and status in ?2",
                 LocalDate.now(),
-                List.of(Booking.BookingStatus.CASH_PENDING_PAYMENT,
+                List.of(Booking.BookingStatus.PENDING,
+                        Booking.BookingStatus.CASH_PENDING_PAYMENT,
                         Booking.BookingStatus.PAID_PENDING_CONFIRMATION,
                         Booking.BookingStatus.CONFIRMED));
+        overview.pendingBookings = countByStatus(from, to, Booking.BookingStatus.PENDING);
         overview.pendingAdminConfirmation = Booking.count(
                 "status = ?1",
                 Booking.BookingStatus.PAID_PENDING_CONFIRMATION);
@@ -147,6 +149,7 @@ public class DashboardService {
                 .setParameter("from", from)
                 .setParameter("to", to)
                 .setParameter("statuses", List.of(
+                        Booking.BookingStatus.PENDING,
                         Booking.BookingStatus.CASH_PENDING_PAYMENT,
                         Booking.BookingStatus.PAID_PENDING_CONFIRMATION,
                         Booking.BookingStatus.CONFIRMED,

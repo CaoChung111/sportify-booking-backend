@@ -22,13 +22,20 @@ public class PaymentGatewayResource {
     @RestClient
     PaymentServiceClient paymentClient;
 
+    @Inject
+    GatewaySseResource gatewaySseResource;
+
     @POST
     @Operation(summary = "Khởi tạo thanh toán cho booking (VNPAY | MoMo | CASH)")
     public Response initiate(@Context HttpHeaders headers, Object body) {
         String authHeader = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
         String token  = authHeader.substring(7);
         try {
-            return paymentClient.initiate(token, body);
+            Response response = paymentClient.initiate(token, body);
+            if (response.getStatus() >= 200 && response.getStatus() < 300) {
+                try { gatewaySseResource.broadcastDashboard("payment_initiated", null); } catch (Exception ignored) {}
+            }
+            return response;
 
         } catch (org.jboss.resteasy.reactive.ClientWebApplicationException e) {
             String errorBody = e.getResponse().readEntity(String.class);
@@ -38,7 +45,6 @@ public class PaymentGatewayResource {
             System.out.println("================================");
             throw e;
         }
-
     }
 
     @GET
@@ -65,7 +71,11 @@ public class PaymentGatewayResource {
     @Path("/{id}/confirm-cash")
     @Operation(summary = "Admin xác nhận thanh toán tiền mặt (CASH)")
     public Response confirmCash(@PathParam("id") Long id, @Context HttpHeaders headers) {
-        return paymentClient.confirmCash(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+        Response response = paymentClient.confirmCash(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+        if (response.getStatus() >= 200 && response.getStatus() < 300) {
+            try { gatewaySseResource.broadcastDashboard("payment_success", null); } catch (Exception ignored) {}
+        }
+        return response;
     }
 
     @GET
@@ -81,8 +91,17 @@ public class PaymentGatewayResource {
             @QueryParam("vnp_OrderInfo")     String orderInfo,
             @QueryParam("vnp_PayDate")       String payDate,
             @QueryParam("vnp_TransactionNo") String transactionNo) {
-        return paymentClient.vnpayCallbackGet(
+        Response response = paymentClient.vnpayCallbackGet(
                 txnRef, responseCode, secureHash, amount, bankCode, orderInfo, payDate, transactionNo);
+        // SSE: Broadcast dashboard-update khi thanh toán thành công (responseCode="00")
+        if ("00".equals(responseCode)) {
+            try {
+                gatewaySseResource.broadcastDashboard("payment_success", null);
+            } catch (Exception ignored) {
+                // Không ảnh hưởng luồng redirect chính
+            }
+        }
+        return response;
     }
 
     @POST
@@ -93,7 +112,16 @@ public class PaymentGatewayResource {
             @QueryParam("vnp_TxnRef")       String txnRef,
             @QueryParam("vnp_ResponseCode") String responseCode,
             @QueryParam("vnp_SecureHash")   String secureHash) {
-        return paymentClient.vnpayCallbackPost(txnRef, responseCode, secureHash);
+        Response response = paymentClient.vnpayCallbackPost(txnRef, responseCode, secureHash);
+        // SSE: Broadcast dashboard-update khi IPN success
+        if ("00".equals(responseCode)) {
+            try {
+                gatewaySseResource.broadcastDashboard("payment_success", null);
+            } catch (Exception ignored) {
+                // Không ảnh hưởng luồng IPN
+            }
+        }
+        return response;
     }
 
     @POST

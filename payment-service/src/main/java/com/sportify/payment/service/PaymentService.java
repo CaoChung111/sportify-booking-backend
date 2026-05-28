@@ -4,6 +4,7 @@ import com.sportify.common.exception.ServiceException;
 import com.sportify.payment.client.BookingServiceClient;
 import com.sportify.payment.dto.PaymentDto;
 import com.sportify.payment.entity.Payment;
+import com.sportify.payment.resource.PaymentSseResource;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -32,6 +33,9 @@ public class PaymentService {
 
     @Inject
     EntityManager entityManager;
+
+    @Inject
+    PaymentSseResource paymentSseResource;
 
     @ConfigProperty(name = "vnpay.tmn-code",      defaultValue = "SPORTIFY1")
     String vnpayTmnCode;
@@ -190,10 +194,18 @@ public class PaymentService {
                 // Log nhưng không rollback payment — booking-service có thể retry
                 // Trong production: dùng message queue (Kafka) để đảm bảo at-least-once
             }
+
+            // SSE: Push payment-status event tới frontend
+            paymentSseResource.push(payment.bookingId, "PAID_PENDING_CONFIRMATION", payment.txnRef);
+
             return "success";
         } else {
             payment.paymentStatus = Payment.PaymentStatus.FAILED;
             payment.persist();
+
+            // SSE: Push payment-status event (failed)
+            paymentSseResource.push(payment.bookingId, "FAILED", payment.txnRef);
+
             return "failed";
         }
     }
@@ -220,6 +232,9 @@ public class PaymentService {
         payment.persist();
 
         bookingServiceClient.confirmBooking(payment.bookingId);
+
+        // SSE: Push payment-status event (cash confirmed)
+        paymentSseResource.push(payment.bookingId, "SUCCESS", payment.txnRef);
 
         return toResponse(payment, null);
     }

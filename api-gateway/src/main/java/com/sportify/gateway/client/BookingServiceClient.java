@@ -4,8 +4,10 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import org.eclipse.microprofile.rest.client.annotation.RegisterClientHeaders;
 
 @RegisterRestClient(configKey = "booking-service")
+@RegisterClientHeaders(CustomHeaderFactory.class)
 @Path("/api/v1/bookings")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -23,6 +25,10 @@ public interface BookingServiceClient {
 
     @GET
     Response getMyBookings(@HeaderParam("Authorization") String authorization);
+
+    @GET
+    @Path("/admin/all")
+    Response getAllBookings(@HeaderParam("Authorization") String authorization);
 
     @GET
     @Path("/field/{fieldId}")

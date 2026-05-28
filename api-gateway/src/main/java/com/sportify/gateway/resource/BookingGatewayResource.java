@@ -22,6 +22,9 @@ public class BookingGatewayResource {
     @RestClient
     BookingServiceClient bookingClient;
 
+    @Inject
+    GatewaySseResource gatewaySseResource;
+
     @GET
     @Path("/check-availability")
     @PermitAll
@@ -37,13 +40,29 @@ public class BookingGatewayResource {
     @POST
     @Operation(summary = "Tạo đơn đặt sân mới")
     public Response create(@Context HttpHeaders headers, Object body) {
-        return bookingClient.create(headers.getHeaderString(HttpHeaders.AUTHORIZATION), body);
+        Response response = bookingClient.create(headers.getHeaderString(HttpHeaders.AUTHORIZATION), body);
+        // SSE: Broadcast dashboard-update khi có booking mới thành công
+        if (response.getStatus() == 201) {
+            try {
+                gatewaySseResource.broadcastDashboard("new_booking", null);
+            } catch (Exception ignored) {
+                // Không làm gán đến luồng proxy chính nếu SSE broadcast thất bại
+            }
+        }
+        return response;
     }
 
     @GET
     @Operation(summary = "Lấy lịch sử đặt sân của user đang đăng nhập")
     public Response getMyBookings(@Context HttpHeaders headers) {
         return bookingClient.getMyBookings(headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    }
+
+    @GET
+    @Path("/admin/all")
+    @Operation(summary = "Lấy toàn bộ lịch sử đặt sân (Admin only)")
+    public Response getAllBookings(@Context HttpHeaders headers) {
+        return bookingClient.getAllBookings(headers.getHeaderString(HttpHeaders.AUTHORIZATION));
     }
 
     @GET
@@ -69,7 +88,11 @@ public class BookingGatewayResource {
     @Path("/{id}/cancel")
     @Operation(summary = "Huỷ đặt sân (chỉ PENDING, chưa thanh toán)")
     public Response cancel(@PathParam("id") Long id, @Context HttpHeaders headers) {
-        return bookingClient.cancel(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+        Response response = bookingClient.cancel(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+        if (response.getStatus() >= 200 && response.getStatus() < 300) {
+            try { gatewaySseResource.broadcastDashboard("booking_cancelled", null); } catch (Exception ignored) {}
+        }
+        return response;
     }
 
     @PATCH
@@ -77,7 +100,11 @@ public class BookingGatewayResource {
     @PermitAll
     @Operation(summary = "[Internal] Xác nhận booking sau khi thanh toán")
     public Response confirm(@PathParam("id") Long id, @Context HttpHeaders headers) {
-        return bookingClient.confirm(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+        Response response = bookingClient.confirm(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+        if (response.getStatus() >= 200 && response.getStatus() < 300) {
+            try { gatewaySseResource.broadcastDashboard("booking_confirmed", null); } catch (Exception ignored) {}
+        }
+        return response;
     }
 
     @PATCH
@@ -85,7 +112,11 @@ public class BookingGatewayResource {
     @PermitAll
     @Operation(summary = "[Internal/Admin] Đánh dấu booking đã hoàn thành")
     public Response complete(@PathParam("id") Long id, @Context HttpHeaders headers) {
-        return bookingClient.complete(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+        Response response = bookingClient.complete(id, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+        if (response.getStatus() >= 200 && response.getStatus() < 300) {
+            try { gatewaySseResource.broadcastDashboard("booking_completed", null); } catch (Exception ignored) {}
+        }
+        return response;
     }
 
     @GET

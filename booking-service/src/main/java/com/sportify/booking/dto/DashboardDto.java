@@ -14,6 +14,7 @@ public class DashboardDto {
         public long totalBookings;
         public long todayBookings;
         public long upcomingBookings;
+        public long pendingBookings;
         public long pendingAdminConfirmation;
         public long cashPendingPayment;
         public long cancelledBookings;

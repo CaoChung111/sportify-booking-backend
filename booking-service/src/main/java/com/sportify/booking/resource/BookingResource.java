@@ -7,6 +7,8 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -28,11 +30,18 @@ public class BookingResource {
     @Inject BookingService bookingService;
     @Inject JsonWebToken jwt;
 
+    @Context
+    HttpHeaders headers;
+
     /**
-     * Lấy userId từ JWT claim.
+     * Lấy userId từ header do API Gateway truyền xuống hoặc từ JWT claim.
      */
     private Long currentUserId() {
         try {
+            String headerUserId = headers.getHeaderString("X-User-Id");
+            if (headerUserId != null && !headerUserId.isBlank()) {
+                return Long.valueOf(headerUserId);
+            }
             Object userIdClaim = jwt.getClaim("userId");
             if (userIdClaim != null) {
                 return Long.valueOf(userIdClaim.toString());
@@ -97,6 +106,15 @@ public class BookingResource {
     @APIResponse(responseCode = "200", description = "Danh sách booking")
     public Response getMyBookings() {
         List<BookingDto.BookingResponse> bookings = bookingService.getMyBookings(currentUserId());
+        return Response.ok(ApiResponse.success(bookings)).build();
+    }
+
+    @GET
+    @Path("/admin/all")
+    @Operation(summary = "Lấy toàn bộ lịch sử đặt sân (Admin only)")
+    @APIResponse(responseCode = "200", description = "Danh sách tất cả booking")
+    public Response getAllBookings() {
+        List<BookingDto.BookingResponse> bookings = bookingService.getAllBookings();
         return Response.ok(ApiResponse.success(bookings)).build();
     }
 

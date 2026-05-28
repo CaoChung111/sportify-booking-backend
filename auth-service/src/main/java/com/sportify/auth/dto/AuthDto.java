@@ -15,7 +15,6 @@ public class AuthDto {
     @Data
     public static class RegisterRequest {
         @NotBlank(message = "Username is required")
-
         @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
         public String username;
 
@@ -29,6 +28,7 @@ public class AuthDto {
 
         public String fullName;
 
+        @NotBlank(message = "Phone number is required")
         @Pattern(regexp = "^(\\+84|0)[0-9]{9,10}$", message = "Invalid Vietnamese phone number")
         public String phone;
     }
