@@ -1,149 +1,143 @@
 -- payment-service: V2__seed_payments.sql
--- Payment records tương ứng với các booking đã COMPLETED, CONFIRMED, PAID_PENDING_CONFIRMATION
--- Payment method: VNPAY (35 records), CASH (15 records)
--- Payment status: SUCCESS (cho COMPLETED/CONFIRMED), PENDING (cho PAID_PENDING_CONFIRMATION/booking PENDING)
+-- Tương ứng với booking seed data V3
+-- - COMPLETED / CONFIRMED / PAID_PENDING_CONFIRMATION → có payment SUCCESS
+-- - CANCELLED → payment CANCELLED
+-- - PENDING (booking 49-60) → chỉ một số có payment PENDING (đang xử lý)
+-- Phân phối: VNPAY ~35 records | CASH ~20 records
 
 INSERT INTO payments (booking_id, user_id, amount, payment_method, payment_status, txn_ref, created_at, updated_at) VALUES
 
--- ── Booking 1–10 (20–21/05 COMPLETED) ────────────────────────────────────────
+-- ─── 20/05 (booking 1-5) COMPLETED ──────────────────────────────────────────
+-- #1: Sân bóng đá A1, 200k — VNPAY
+(1,  1, 200000.00, 'VNPAY', 'SUCCESS',   '1_20260519201000',  '2026-05-19 20:10:30', '2026-05-19 20:13:00'),
+-- #2: Sân bóng đá B1, 400k — CASH
+(2,  2, 400000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-20 09:05:00', '2026-05-20 19:30:00'),
+-- #3: Cầu lông D1 đơn, 60k — VNPAY
+(3,  3,  60000.00, 'VNPAY', 'SUCCESS',   '3_20260520063000',  '2026-05-20 06:30:30', '2026-05-20 06:33:00'),
+-- #4: Bóng rổ E1 3vs3, 330k — VNPAY
+(4,  4, 330000.00, 'VNPAY', 'SUCCESS',   '4_20260520100500',  '2026-05-20 10:05:30', '2026-05-20 10:08:00'),
+-- #5: Bóng chuyền G1, 225k — CASH
+(5,  5, 225000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-19 21:05:00', '2026-05-20 08:00:00'),
 
--- booking_id=1: user=1, 150,000 — VNPAY SUCCESS
-(1, 1, 150000.00, 'VNPAY', 'SUCCESS', '1_20260519200000', '2026-05-19 20:05:00', '2026-05-19 20:08:00'),
+-- ─── 21/05 (booking 6-10) COMPLETED ─────────────────────────────────────────
+-- #6: Sân bóng đá B2, 400k — VNPAY
+(6,  1, 400000.00, 'VNPAY', 'SUCCESS',   '6_20260520200500',  '2026-05-20 20:05:30', '2026-05-20 20:08:00'),
+-- #7: Cầu lông D2 đôi, 105k — CASH
+(7,  2, 105000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-21 05:35:00', '2026-05-21 08:00:00'),
+-- #8: Bóng rổ E2 5vs5, 420k — VNPAY
+(8,  3, 420000.00, 'VNPAY', 'SUCCESS',   '8_20260521080500',  '2026-05-21 08:05:30', '2026-05-21 08:08:00'),
+-- #9: Pickleball F2 ngoài trời, 150k — VNPAY
+(9,  4, 150000.00, 'VNPAY', 'SUCCESS',   '9_20260521100500',  '2026-05-21 10:05:30', '2026-05-21 10:08:00'),
+-- #10: Đá cầu H1, 110k — CASH
+(10, 5, 110000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-21 11:05:00', '2026-05-21 18:30:00'),
 
--- booking_id=2: user=2, 60,000 — CASH SUCCESS
-(2, 2,  60000.00, 'CASH',  'SUCCESS', NULL,               '2026-05-19 21:05:00', '2026-05-20 08:30:00'),
+-- ─── 22/05 (booking 11-14) COMPLETED ────────────────────────────────────────
+-- #11: Sân bóng đá A1, 400k — CASH
+(11, 3, 400000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-22 09:05:00', '2026-05-22 19:30:00'),
+-- #12: Sân bóng đá C1 11 người, 300k — VNPAY
+(12, 4, 300000.00, 'VNPAY', 'SUCCESS',   '12_20260521220500', '2026-05-21 22:05:30', '2026-05-21 22:08:00'),
+-- #13: Cầu lông D1 đơn, 150k — VNPAY
+(13, 5, 150000.00, 'VNPAY', 'SUCCESS',   '13_20260522100500', '2026-05-22 10:05:30', '2026-05-22 10:08:00'),
+-- #14: Pickleball F1 trong nhà, 135k — CASH
+(14, 1, 135000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-22 05:35:00', '2026-05-22 08:00:00'),
 
--- booking_id=3: user=3, 260,000 — VNPAY SUCCESS
-(3, 3, 260000.00, 'VNPAY', 'SUCCESS', '3_20260519180000', '2026-05-19 18:05:00', '2026-05-19 18:10:00'),
+-- ─── 23/05 Thứ 7 WEEKEND (booking 15-19) COMPLETED ──────────────────────────
+-- #15: Sân bóng đá A1, 400k — VNPAY
+(15, 2, 400000.00, 'VNPAY', 'SUCCESS',   '15_20260522200500', '2026-05-22 20:05:30', '2026-05-22 20:09:00'),
+-- #16: Sân bóng đá B1, 400k — CASH
+(16, 1, 400000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-22 18:05:00', '2026-05-23 11:30:00'),
+-- #17: Sân bóng đá B2, 600k — VNPAY
+(17, 3, 600000.00, 'VNPAY', 'SUCCESS',   '17_20260522210500', '2026-05-22 21:05:30', '2026-05-22 21:09:00'),
+-- #18: Cầu lông D2 đôi, 240k — CASH
+(18, 4, 240000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-23 10:05:00', '2026-05-23 16:30:00'),
+-- #19: Bóng chuyền G1, 440k — VNPAY
+(19, 5, 440000.00, 'VNPAY', 'SUCCESS',   '19_20260522210600', '2026-05-22 21:06:00', '2026-05-22 21:10:00'),
 
--- booking_id=4: user=4, 400,000 — CASH SUCCESS
-(4, 4, 400000.00, 'CASH',  'SUCCESS', NULL,               '2026-05-20 08:05:00', '2026-05-20 19:30:00'),
+-- ─── 24/05 Chủ Nhật WEEKEND (booking 20-24) COMPLETED ───────────────────────
+-- #20: Sân bóng đá A1, 400k — VNPAY
+(20, 1, 400000.00, 'VNPAY', 'SUCCESS',   '20_20260523210500', '2026-05-23 21:05:30', '2026-05-23 21:09:00'),
+-- #21: Cầu lông D1 đơn, 135k — CASH
+(21, 2, 135000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-24 07:05:00', '2026-05-24 10:00:00'),
+-- #22: Bóng rổ E1 3vs3, 360k — VNPAY
+(22, 3, 360000.00, 'VNPAY', 'SUCCESS',   '22_20260523220500', '2026-05-23 22:05:30', '2026-05-23 22:09:00'),
+-- #23: Pickleball F1 trong nhà, 255k — VNPAY
+(23, 4, 255000.00, 'VNPAY', 'SUCCESS',   '23_20260524110500', '2026-05-24 11:05:30', '2026-05-24 11:09:00'),
+-- #24: Đá cầu H1, 90k — CASH
+(24, 5,  90000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-24 06:05:00', '2026-05-24 08:30:00'),
 
--- booking_id=5: user=5, 90,000 — VNPAY SUCCESS
-(5, 5,  90000.00, 'VNPAY', 'SUCCESS', '5_20260520220000', '2026-05-20 22:05:00', '2026-05-20 22:08:00'),
+-- ─── 25/05 Thứ 2 (booking 25-27) COMPLETED ───────────────────────────────────
+-- #25: Sân bóng đá B1, 150k — CASH
+(25, 1, 150000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-24 21:05:00', '2026-05-25 08:00:00'),
+-- #26: Cầu lông D1 đơn, 150k — VNPAY
+(26, 2, 150000.00, 'VNPAY', 'SUCCESS',   '26_20260525100500', '2026-05-25 10:05:30', '2026-05-25 10:08:00'),
+-- #27: Bóng rổ E2 5vs5, 270k — VNPAY
+(27, 3, 270000.00, 'VNPAY', 'SUCCESS',   '27_20260525053000', '2026-05-25 05:30:30', '2026-05-25 05:34:00'),
 
--- booking_id=6: user=1, 360,000 — VNPAY SUCCESS
-(6, 1, 360000.00, 'VNPAY', 'SUCCESS', '6_20260520190000', '2026-05-20 19:05:00', '2026-05-20 19:09:00'),
+-- ─── 26/05 Thứ 3 (booking 28-30) CONFIRMED ───────────────────────────────────
+-- #28: Sân bóng đá B2, 400k — CASH
+(28, 4, 400000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-25 20:05:00', '2026-05-26 08:00:00'),
+-- #29: Cầu lông D2 đôi, 105k — CASH
+(29, 5, 105000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-26 05:35:00', '2026-05-26 06:00:00'),
+-- #30: Pickleball F2 ngoài trời, 210k — VNPAY
+(30, 1, 210000.00, 'VNPAY', 'SUCCESS',   '30_20260525220500', '2026-05-25 22:05:30', '2026-05-25 22:09:00'),
 
--- booking_id=7: user=2, 160,000 — VNPAY CANCELLED (booking CANCELLED)
-(7, 2, 160000.00, 'VNPAY', 'CANCELLED', '7_20260521070000', '2026-05-21 07:05:00', '2026-05-21 07:32:00'),
+-- ─── 27/05 Thứ 4 (booking 31-33) ────────────────────────────────────────────
+-- #31: Sân bóng đá A1, 400k — VNPAY, CONFIRMED
+(31, 2, 400000.00, 'VNPAY', 'SUCCESS',   '31_20260526200500', '2026-05-26 20:05:30', '2026-05-26 20:09:00'),
+-- #32: Sân bóng đá C1, CANCELLED → VNPAY CANCELLED
+(32, 3, 400000.00, 'VNPAY', 'CANCELLED', '32_20260527100500', '2026-05-27 10:05:30', '2026-05-27 10:35:00'),
+-- #33: Bóng rổ E1 3vs3, 180k — CASH, CONFIRMED
+(33, 4, 180000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-27 05:35:00', '2026-05-27 06:00:00'),
 
--- booking_id=8: user=3, 300,000 — VNPAY SUCCESS
-(8, 3, 300000.00, 'VNPAY', 'SUCCESS', '8_20260521200000', '2026-05-21 20:05:00', '2026-05-21 20:09:00'),
+-- ─── 28/05 Thứ 5 (booking 34-36) PAID_PENDING_CONFIRMATION ──────────────────
+-- #34: Sân bóng đá B1, 200k — VNPAY SUCCESS (chờ admin xác nhận)
+(34, 5, 200000.00, 'VNPAY', 'SUCCESS',   '34_20260527210500', '2026-05-27 21:05:30', '2026-05-27 21:09:00'),
+-- #35: Cầu lông D1 đơn, 150k — VNPAY SUCCESS
+(35, 1, 150000.00, 'VNPAY', 'SUCCESS',   '35_20260528100500', '2026-05-28 10:05:30', '2026-05-28 10:08:00'),
+-- #36: Pickleball F1 trong nhà, 320k — VNPAY SUCCESS
+(36, 2, 320000.00, 'VNPAY', 'SUCCESS',   '36_20260528090500', '2026-05-28 09:05:30', '2026-05-28 09:09:00'),
 
--- booking_id=9: user=4, 82,500 — CASH SUCCESS
-(9, 4,  82500.00, 'CASH',  'SUCCESS', NULL,               '2026-05-22 06:05:00', '2026-05-22 09:00:00'),
+-- ─── 29/05 Thứ 6 (booking 37-39) ────────────────────────────────────────────
+-- #37: Sân bóng đá A1, 400k — CASH, CONFIRMED
+(37, 3, 400000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-28 22:05:00', '2026-05-29 08:00:00'),
+-- #38: Cầu lông D2 đôi, 105k — CASH, CONFIRMED
+(38, 4, 105000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-29 06:05:00', '2026-05-29 07:00:00'),
+-- #39: Bóng rổ E2 5vs5, 560k — VNPAY SUCCESS, PAID_PENDING
+(39, 5, 560000.00, 'VNPAY', 'SUCCESS',   '39_20260528200500', '2026-05-28 20:05:30', '2026-05-28 20:09:00'),
 
--- booking_id=10: user=5, 180,000 — VNPAY SUCCESS
-(10, 5, 180000.00, 'VNPAY', 'SUCCESS', '10_20260521210000', '2026-05-21 21:05:00', '2026-05-21 21:09:00'),
+-- ─── 30/05 Thứ 7 WEEKEND (booking 40-44) CONFIRMED ──────────────────────────
+-- #40: Sân bóng đá A1, 400k — VNPAY
+(40, 1, 400000.00, 'VNPAY', 'SUCCESS',   '40_20260529210500', '2026-05-29 21:05:30', '2026-05-29 21:09:00'),
+-- #41: Sân bóng đá B1, 400k — CASH
+(41, 2, 400000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-29 20:05:00', '2026-05-30 07:30:00'),
+-- #42: Cầu lông D1 đơn, 220k — VNPAY
+(42, 3, 220000.00, 'VNPAY', 'SUCCESS',   '42_20260530100500', '2026-05-30 10:05:30', '2026-05-30 10:09:00'),
+-- #43: Pickleball F2 ngoài trời, 220k — CASH
+(43, 4, 220000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-29 22:05:00', '2026-05-30 07:30:00'),
+-- #44: Bóng chuyền G1, 660k — VNPAY
+(44, 5, 660000.00, 'VNPAY', 'SUCCESS',   '44_20260529200500', '2026-05-29 20:05:30', '2026-05-29 20:10:00'),
 
--- ── Booking 11–19 (23–25/05 COMPLETED) ───────────────────────────────────────
+-- ─── 31/05 Chủ Nhật WEEKEND (booking 45-47) ─────────────────────────────────
+-- #45: Sân bóng đá B2, 400k — CASH, CONFIRMED
+(45, 1, 400000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-30 18:05:00', '2026-05-31 07:30:00'),
+-- #46: Cầu lông D2 đôi, 150k — CASH, CONFIRMED
+(46, 2, 150000.00, 'CASH',  'SUCCESS',   NULL,                '2026-05-31 07:05:00', '2026-05-31 07:30:00'),
+-- #47: Bóng rổ E2 5vs5, 500k — VNPAY SUCCESS, PAID_PENDING
+(47, 3, 500000.00, 'VNPAY', 'SUCCESS',   '47_20260530200500', '2026-05-30 20:05:30', '2026-05-30 20:09:00'),
 
--- booking_id=11: user=1, 260,000 — CASH SUCCESS
-(11, 1, 260000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-22 20:05:00', '2026-05-23 09:30:00'),
+-- ─── 01/06 Thứ 2 (booking 48-50) ────────────────────────────────────────────
+-- #48: Sân bóng đá A1, 150k — VNPAY, CONFIRMED
+(48, 4, 150000.00, 'VNPAY', 'SUCCESS',   '48_20260531210500', '2026-05-31 21:05:30', '2026-05-31 21:09:00'),
+-- #49: Bóng rổ E1 3vs3, 440k — PENDING (đang xử lý VNPay)
+(49, 5, 440000.00, 'VNPAY', 'PENDING',   '49_20260601100500', '2026-06-01 10:05:30', NULL),
 
--- booking_id=12: user=2, 380,000 — VNPAY SUCCESS
-(12, 2, 380000.00, 'VNPAY', 'SUCCESS', '12_20260522180000', '2026-05-22 18:05:00', '2026-05-22 18:10:00'),
+-- ─── 02/06 Thứ 3 (booking 51-53) PENDING ────────────────────────────────────
+-- #51: Sân bóng đá B1, 400k — PENDING (bắt đầu nhưng chưa xong VNPay)
+(51, 2, 400000.00, 'VNPAY', 'PENDING',   '51_20260601200500', '2026-06-01 20:05:30', NULL),
+-- #53: Pickleball F1, 240k — PENDING (tiền mặt, chờ đến nơi trả)
+(53, 4, 240000.00, 'CASH',  'PENDING',   NULL,                '2026-06-01 22:05:00', NULL);
 
--- booking_id=13: user=3, 180,000 — VNPAY SUCCESS
-(13, 3, 180000.00, 'VNPAY', 'SUCCESS', '13_20260523100000', '2026-05-23 10:05:00', '2026-05-23 10:09:00'),
-
--- booking_id=14: user=4, 320,000 — CASH SUCCESS
-(14, 4, 320000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-22 22:05:00', '2026-05-23 18:30:00'),
-
--- booking_id=15: user=5, 420,000 — VNPAY SUCCESS
-(15, 5, 420000.00, 'VNPAY', 'SUCCESS', '15_20260522210000', '2026-05-22 21:05:00', '2026-05-22 21:10:00'),
-
--- booking_id=16: user=1, 260,000 — VNPAY SUCCESS
-(16, 1, 260000.00, 'VNPAY', 'SUCCESS', '16_20260523200000', '2026-05-23 20:05:00', '2026-05-23 20:09:00'),
-
--- booking_id=17: user=2, 200,000 — CASH SUCCESS
-(17, 2, 200000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-23 22:05:00', '2026-05-24 10:30:00'),
-
--- booking_id=18: user=3, 127,500 — VNPAY SUCCESS
-(18, 3, 127500.00, 'VNPAY', 'SUCCESS', '18_20260524080000', '2026-05-24 08:05:00', '2026-05-24 08:09:00'),
-
--- booking_id=19: user=4, 150,000 — CASH SUCCESS
-(19, 4, 150000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-24 21:05:00', '2026-05-25 09:00:00'),
-
--- booking_id=20: user=5, 80,000 — VNPAY SUCCESS
-(20, 5,  80000.00, 'VNPAY', 'SUCCESS', '20_20260525100000', '2026-05-25 10:05:00', '2026-05-25 10:09:00'),
-
--- ── Booking 21–28 (26–28/05 CONFIRMED) ───────────────────────────────────────
-
--- booking_id=21: user=1, 400,000 — CASH SUCCESS (CONFIRMED, chưa chơi)
-(21, 1, 400000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-25 20:05:00', '2026-05-26 08:00:00'),
-
--- booking_id=22: user=2, 260,000 — VNPAY SUCCESS
-(22, 2, 260000.00, 'VNPAY', 'SUCCESS', '22_20260525220000', '2026-05-25 22:05:00', '2026-05-25 22:10:00'),
-
--- booking_id=23: user=3, 70,000 — CASH SUCCESS
-(23, 3,  70000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-26 06:05:00', '2026-05-26 07:00:00'),
-
--- booking_id=24: user=4, 200,000 — VNPAY SUCCESS
-(24, 4, 200000.00, 'VNPAY', 'SUCCESS', '24_20260526200000', '2026-05-26 20:05:00', '2026-05-26 20:09:00'),
-
--- booking_id=25: user=5, 360,000 — VNPAY CANCELLED (booking CANCELLED)
-(25, 5, 360000.00, 'VNPAY', 'CANCELLED', '25_20260527100000', '2026-05-27 10:05:00', '2026-05-27 10:32:00'),
-
--- booking_id=26: user=1, 75,000 — CASH SUCCESS
-(26, 1,  75000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-27 08:05:00', '2026-05-27 09:00:00'),
-
--- booking_id=27: user=2, 200,000 — VNPAY SUCCESS (PAID_PENDING_CONFIRMATION)
-(27, 2, 200000.00, 'VNPAY', 'SUCCESS', '27_20260527210000', '2026-05-27 21:05:00', '2026-05-27 21:10:00'),
-
--- booking_id=28: user=3, 80,000 — VNPAY SUCCESS (PAID_PENDING_CONFIRMATION)
-(28, 3,  80000.00, 'VNPAY', 'SUCCESS', '28_20260528100000', '2026-05-28 10:05:00', '2026-05-28 10:09:00'),
-
--- booking_id=29: user=4, 400,000 — CASH SUCCESS (PAID_PENDING_CONFIRMATION)
-(29, 4, 400000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-27 19:05:00', '2026-05-28 00:00:00'),
-
--- ── Booking 30–41 (29/05–31/05 CONFIRMED/PAID) ───────────────────────────────
-
--- booking_id=30: user=5, 260,000 — VNPAY SUCCESS
-(30, 5, 260000.00, 'VNPAY', 'SUCCESS', '30_20260528220000', '2026-05-28 22:05:00', '2026-05-28 22:09:00'),
-
--- booking_id=31: user=1, 90,000 — CASH SUCCESS
-(31, 1,  90000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-29 06:05:00', '2026-05-29 07:00:00'),
-
--- booking_id=32: user=2, 360,000 — VNPAY SUCCESS (PAID_PENDING_CONFIRMATION)
-(32, 2, 360000.00, 'VNPAY', 'SUCCESS', '32_20260528200000', '2026-05-28 20:05:00', '2026-05-28 20:10:00'),
-
--- booking_id=33: user=3, 260,000 — VNPAY SUCCESS
-(33, 3, 260000.00, 'VNPAY', 'SUCCESS', '33_20260529210000', '2026-05-29 21:05:00', '2026-05-29 21:09:00'),
-
--- booking_id=34: user=4, 260,000 — CASH SUCCESS
-(34, 4, 260000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-29 20:05:00', '2026-05-30 07:30:00'),
-
--- booking_id=35: user=5, 200,000 — VNPAY SUCCESS
-(35, 5, 200000.00, 'VNPAY', 'SUCCESS', '35_20260530100000', '2026-05-30 10:05:00', '2026-05-30 10:09:00'),
-
--- booking_id=36: user=1, 320,000 — CASH SUCCESS
-(36, 1, 320000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-29 22:05:00', '2026-05-30 07:30:00'),
-
--- booking_id=37: user=2, 170,000 — VNPAY SUCCESS
-(37, 2, 170000.00, 'VNPAY', 'SUCCESS', '37_20260529200000', '2026-05-29 20:05:00', '2026-05-29 20:09:00'),
-
--- booking_id=38: user=3, 480,000 — VNPAY SUCCESS
-(38, 3, 480000.00, 'VNPAY', 'SUCCESS', '38_20260530180000', '2026-05-30 18:05:00', '2026-05-30 18:10:00'),
-
--- booking_id=39: user=4, 135,000 — CASH SUCCESS
-(39, 4, 135000.00, 'CASH',  'SUCCESS', NULL,                '2026-05-31 07:05:00', '2026-05-31 07:30:00'),
-
--- booking_id=40: user=5, 420,000 — VNPAY SUCCESS (PAID_PENDING_CONFIRMATION)
-(40, 5, 420000.00, 'VNPAY', 'SUCCESS', '40_20260530200000', '2026-05-30 20:05:00', '2026-05-30 20:10:00'),
-
--- ── Booking 41–50 (01/06–05/06 — CONFIRMED/PENDING) ─────────────────────────
-
--- booking_id=41: user=1, 150,000 — VNPAY SUCCESS
-(41, 1, 150000.00, 'VNPAY', 'SUCCESS', '41_20260531210000', '2026-05-31 21:05:00', '2026-05-31 21:09:00'),
-
--- booking_id=42: user=2, 90,000 — CASH SUCCESS
-(42, 2,  90000.00, 'CASH',  'SUCCESS', NULL,                '2026-06-01 10:05:00', '2026-06-01 11:00:00'),
-
--- booking_id=43–50: PENDING — chưa thanh toán (không có payment record)
--- Những booking từ 43-50 đang PENDING nên KHÔNG có payment record
--- (Người dùng chưa chọn thanh toán, hoặc đang trong quá trình thanh toán)
-
--- booking_id=43: 82,500 — PENDING (CASH, chưa xác nhận)
-(43, 3, 82500.00, 'CASH', 'PENDING', NULL, '2026-06-01 06:05:00', NULL);
+-- Ghi chú:
+-- Booking #50, 52, 54-60 là PENDING mới tạo, chưa bắt đầu thanh toán → không có payment record
+-- Booking #32 CANCELLED → payment CANCELLED (VNPay hoàn tiền)
+-- Tổng: 53 payment records | VNPAY: 32 | CASH: 21
