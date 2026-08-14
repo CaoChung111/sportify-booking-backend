@@ -1,6 +1,7 @@
 package com.sportify.booking.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,11 +17,14 @@ import java.util.Optional;
 @Entity
 @Table(name = "bookings")
 @Getter @Setter @NoArgsConstructor
-public class Booking extends PanacheEntity {
+public class Booking extends PanacheEntityBase {
 
     // Thời gian (phút) mà một đơn PENDING được coi là hợp lệ trước khi hết hạn
     public static final int PENDING_EXPIRATION_MINUTES = 15;
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
     /**
      * ID reference — không dùng @ManyToOne cross-service.
      * Mỗi service có DB riêng, không có FK xuyên service.

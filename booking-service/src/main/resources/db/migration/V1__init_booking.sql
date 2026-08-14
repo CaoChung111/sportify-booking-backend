@@ -9,7 +9,7 @@ CREATE TABLE bookings (
     start_time    TIME           NOT NULL,
     end_time      TIME           NOT NULL,
     total_price   DECIMAL(15, 2) NOT NULL,
-    status        VARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    status        VARCHAR(30)    NOT NULL DEFAULT 'PENDING',
     note          TEXT,                                -- ghi chú của khách
     version       INT            NOT NULL DEFAULT 0,  -- optimistic locking
     created_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,

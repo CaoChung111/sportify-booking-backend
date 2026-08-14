@@ -1,6 +1,7 @@
 package com.sportify.payment.entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,8 +14,11 @@ import java.util.List;
 @Entity
 @Table(name = "payments")
 @Getter @Setter @NoArgsConstructor
-public class Payment extends PanacheEntity {
+public class Payment extends PanacheEntityBase {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
     /**
      * ID reference — không @ManyToOne cross-service.
      */

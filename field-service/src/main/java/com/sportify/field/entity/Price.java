@@ -56,7 +56,7 @@ public class Price extends PanacheEntityBase {
 
     /**
      * Lấy tất cả các quy tắc giá cho một loại sân và loại ngày, sắp xếp theo giờ bắt đầu.
-     * Cần thiết cho thuật toán tính giá theo từng phân đoạn.
+     * Cần thiết cho stthuật toán tính giá theo từng phân đoạn.
      */
     public static List<Price> findRulesForDay(Long locationId, Long fieldTypeId, DayType dayType) {
         return list(

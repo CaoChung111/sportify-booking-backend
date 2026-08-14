@@ -17,6 +17,7 @@
         <module>field-service</module>
         <module>booking-service</module>
         <module>payment-service</module>
+        <module>ai-service</module>
     </modules>
 
     <properties>

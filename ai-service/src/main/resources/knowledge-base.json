@@ -1,0 +1,92 @@
+[
+  {
+    "id": "about",
+    "category": "about",
+    "title": "Giới thiệu Sportify Booking",
+    "content": "Sportify Booking là nền tảng đặt sân thể thao trực tuyến hàng đầu, giúp người dùng dễ dàng tìm kiếm, so sánh và đặt lịch các sân thể thao (bóng đá, cầu lông, bóng rổ, pickleball, bóng chuyền, đá cầu) với mức giá tốt nhất, mọi lúc mọi nơi."
+  },
+  {
+    "id": "sports",
+    "category": "sports",
+    "title": "Các môn thể thao hỗ trợ",
+    "content": "Hệ thống hỗ trợ đặt sân cho các môn: Bóng đá (sân 5 người, 7 người, 11 người), Cầu lông, Bóng rổ, Pickleball, Bóng chuyền, và Đá cầu."
+  },
+  {
+    "id": "booking_process",
+    "category": "booking_process",
+    "title": "Quy trình đặt sân",
+    "content": "Quy trình bao gồm các bước: 1. Chọn môn thể thao. 2. Chọn khu vực/địa điểm. 3. Chọn ngày và khung giờ muốn chơi. 4. Kiểm tra tình trạng sân trống. 5. Xác nhận thông tin đặt sân. 6. Tiến hành thanh toán."
+  },
+  {
+    "id": "payment",
+    "category": "payment",
+    "title": "Phương thức thanh toán",
+    "content": "Hỗ trợ thanh toán bằng Tiền mặt (CASH) tại sân hoặc thanh toán online qua cổng VNPay. Các trạng thái thanh toán bao gồm: PENDING (chờ thanh toán), SUCCESS (thành công) và FAILED (thất bại)."
+  },
+  {
+    "id": "cancellation_policy",
+    "category": "cancellation_policy",
+    "title": "Chính sách hủy đặt sân",
+    "content": "Khách hàng chỉ có thể hủy đặt sân khi trạng thái đang là PENDING (chưa thanh toán). Khi sân đã được thanh toán và chuyển sang trạng thái CONFIRMED (đã xác nhận), việc hủy sân sẽ không được hỗ trợ để đảm bảo quyền lợi cho chủ sân."
+  },
+  {
+    "id": "pricing",
+    "category": "pricing",
+    "title": "Chính sách giá",
+    "content": "Giá thuê sân được tính theo giờ, áp dụng Dynamic Pricing (giá động) tùy thuộc vào khung giờ (sáng/chiều/tối) và loại ngày trong tuần (WEEKDAY - ngày thường, WEEKEND - cuối tuần, HOLIDAY - ngày lễ)."
+  },
+  {
+    "id": "operating_hours",
+    "category": "operating_hours",
+    "title": "Giờ hoạt động",
+    "content": "Hệ thống các sân hoạt động từ 6:00 sáng đến 22:00 tối hàng ngày. Giờ nghỉ trưa từ 12:00 đến 13:00 sẽ không tính phí hoặc không cho phép đặt lịch tùy thuộc vào từng sân."
+  },
+  {
+    "id": "contact",
+    "category": "contact",
+    "title": "Thông tin liên hệ",
+    "content": "Bạn có thể liên hệ tổng đài hỗ trợ qua Hotline: 1900 xxxx, gửi email về support@sportifybooking.com, hoặc liên hệ qua website chính thức của hệ thống."
+  },
+  {
+    "id": "faq_1",
+    "category": "faq_1",
+    "title": "FAQ: Làm thế nào để đặt sân?",
+    "content": "Bạn có thể tải app Sportify Booking hoặc truy cập website, đăng nhập, chọn môn thể thao, tìm sân trống theo ngày giờ, và làm theo các bước để thanh toán."
+  },
+  {
+    "id": "faq_2",
+    "category": "faq_2",
+    "title": "FAQ: Có thể đặt sân trước bao lâu?",
+    "content": "Bạn có thể đặt sân trước tối đa 30 ngày để đảm bảo có được khung giờ và sân chơi ưng ý nhất."
+  },
+  {
+    "id": "faq_3",
+    "category": "faq_3",
+    "title": "FAQ: Thanh toán như thế nào?",
+    "content": "Khách hàng có thể lựa chọn thanh toán bằng tiền mặt tại sân (nếu sân cho phép) hoặc thanh toán an toàn, tiện lợi qua cổng thanh toán VNPay."
+  },
+  {
+    "id": "faq_4",
+    "category": "faq_4",
+    "title": "FAQ: Hủy đặt sân có mất phí không?",
+    "content": "Nếu bạn hủy trong trạng thái PENDING (chưa thanh toán), bạn sẽ không mất phí. Nếu đã thanh toán, bạn không thể tự hủy trên hệ thống."
+  },
+  {
+    "id": "faq_5",
+    "category": "faq_5",
+    "title": "FAQ: Làm sao biết sân còn trống?",
+    "content": "Khi bạn chọn ngày và giờ chơi trên hệ thống, các sân có màu xanh là sân còn trống, màu xám hoặc đỏ là sân đã có người đặt hoặc đang bảo trì."
+  },
+  {
+    "id": "field_types",
+    "category": "field_types",
+    "title": "Các loại sân",
+    "content": "Mỗi môn thể thao có nhiều loại sân khác nhau. Ví dụ: Sân bóng đá có sân 5, sân 7, sân 11. Các sân có chất liệu cỏ nhân tạo, gỗ, nhựa tổng hợp tùy vào môn thể thao và tiêu chuẩn thi đấu."
+  },
+  {
+    "id": "promotions",
+    "category": "promotions",
+    "title": "Chương trình ưu đãi",
+    "content": "Sportify Booking thường xuyên có ưu đãi: giảm giá vào các khung giờ thấp điểm (giờ hành chính), khuyến mãi cho học sinh/sinh viên, hoặc voucher giảm giá khi đặt sân dài hạn cho đội nhóm."
+  }
+]
