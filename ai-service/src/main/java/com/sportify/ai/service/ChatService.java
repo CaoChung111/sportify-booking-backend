@@ -48,9 +48,69 @@ public class ChatService {
 
         List<ChatDto.ChatMessage> history = sessions.computeIfAbsent(sessionId, k -> new ArrayList<>());
 
+        // 1. Handle Greetings / Small talk statically to save tokens
+        if (isGreetingOrSmallTalk(message)) {
+            String greetingReply = "Xin chào! Tôi là trợ lý ảo Sportify AI. Tôi có thể giúp gì cho bạn hôm nay? Bạn có thể hỏi tôi về lịch sân trống, bảng giá thuê sân, hoặc các quy định đặt/hủy sân tại Sportify.";
+            
+            // Save to history
+            history.add(new ChatDto.ChatMessage("user", message));
+            history.add(new ChatDto.ChatMessage("model", greetingReply));
+
+            ChatDto.ChatResponse chatResponse = new ChatDto.ChatResponse();
+            chatResponse.setSessionId(sessionId);
+            chatResponse.setReply(greetingReply);
+            chatResponse.setSuggestions(List.of("Tìm sân bóng đá trống", "Quy trình đặt sân", "Bảng giá thuê sân"));
+            return chatResponse;
+        }
+
         try {
             // Search vector store for context
             List<VectorStoreService.SearchResult> searchResults = vectorStoreService.search(message, 3);
+
+            // 2. Intent filtering & Semantic Cache (Check scores before calling Gemini)
+            if (searchResults != null && !searchResults.isEmpty()) {
+                double topScore = searchResults.get(0).score();
+                LOG.infof("RAG search top score: %.4f for query: %s", topScore, message);
+
+                // Direct FAQ Match (High similarity score >= 0.82)
+                if (topScore >= 0.82) {
+                    String directAnswer = searchResults.get(0).document().getContent();
+                    LOG.infof("Direct FAQ match found (score: %.4f). Returning static answer without calling Gemini.", topScore);
+
+                    // Save to history
+                    history.add(new ChatDto.ChatMessage("user", message));
+                    history.add(new ChatDto.ChatMessage("model", directAnswer));
+
+                    ChatDto.ChatResponse chatResponse = new ChatDto.ChatResponse();
+                    chatResponse.setSessionId(sessionId);
+                    chatResponse.setReply(directAnswer);
+                    chatResponse.setSuggestions(generateSuggestions(directAnswer));
+                    return chatResponse;
+                }
+
+                // Out of Scope Check (Very low similarity score < 0.52)
+                if (topScore < 0.52) {
+                    String outOfScopeMsg = "Xin lỗi, câu hỏi của bạn nằm ngoài phạm vi hỗ trợ của trợ lý ảo Sportify. Tôi chỉ có thể tư vấn các thông tin liên quan đến đặt sân thể thao, giá cả, lịch trống và chính sách của Sportify.";
+                    LOG.infof("Query is out of scope (score: %.4f). Returning fixed response.", topScore);
+
+                    ChatDto.ChatResponse chatResponse = new ChatDto.ChatResponse();
+                    chatResponse.setSessionId(sessionId);
+                    chatResponse.setReply(outOfScopeMsg);
+                    chatResponse.setSuggestions(List.of("Chính sách hủy đặt sân", "Quy trình đặt sân", "Chính sách giá"));
+                    return chatResponse;
+                }
+            } else {
+                // If searchResults is empty, it means no keyword matches at all in fallback search
+                String outOfScopeMsg = "Xin lỗi, câu hỏi của bạn nằm ngoài phạm vi hỗ trợ của trợ lý ảo Sportify. Tôi chỉ có thể tư vấn các thông tin liên quan đến đặt sân thể thao, giá cả, lịch trống và chính sách của Sportify.";
+                LOG.infof("Query is out of scope (empty search results). Returning fixed response.");
+
+                ChatDto.ChatResponse chatResponse = new ChatDto.ChatResponse();
+                chatResponse.setSessionId(sessionId);
+                chatResponse.setReply(outOfScopeMsg);
+                chatResponse.setSuggestions(List.of("Chính sách hủy đặt sân", "Quy trình đặt sân", "Chính sách giá"));
+                return chatResponse;
+            }
+
             String ragContext = buildRagContext(searchResults);
 
             // Build system instruction
@@ -177,6 +237,16 @@ public class ChatService {
     }
 
     private List<String> generateSuggestions(String reply) {
-        return List.of("Tìm sân bóng gần tôi", "Giá thuê sân thế nào?", "Hướng dẫn đặt sân");
+        return List.of("Chính sách đặt sân", "Giá thuê sân thế nào?", "Hướng dẫn đặt sân");
+    }
+
+    private boolean isGreetingOrSmallTalk(String message) {
+        if (message == null) return false;
+        String msg = message.toLowerCase().trim()
+                .replaceAll("[?,.!~*#]", ""); // remove punctuation
+        return msg.equals("hi") || msg.equals("hello") || msg.equals("chao") || msg.equals("chào") 
+            || msg.equals("chào bạn") || msg.equals("chao ban") || msg.equals("alo") || msg.equals("bắt đầu")
+            || msg.equals("bat dau") || msg.equals("xin chào") || msg.equals("xin chao") || msg.equals("gud")
+            || msg.equals("tạm biệt") || msg.equals("tam biet") || msg.equals("bye") || msg.equals("ok") || msg.equals("oke");
     }
 }
