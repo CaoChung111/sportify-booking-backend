@@ -13,6 +13,7 @@ import jakarta.ws.rs.core.Form;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -23,6 +24,8 @@ import java.util.Set;
 
 @ApplicationScoped
 public class AuthService {
+
+    private static final Logger LOG = Logger.getLogger(AuthService.class);
 
     @ConfigProperty(name = "quarkus.keycloak.admin-client.server-url")
     String keycloakServerUrl;
@@ -64,8 +67,8 @@ public class AuthService {
         UserRepresentation kcUser = new UserRepresentation();
         kcUser.setUsername(request.username);
         kcUser.setEmail(request.email);
-        kcUser.setFirstName(request.fullName != null ? request.fullName : "");
-        kcUser.setLastName("");
+        kcUser.setFirstName(request.fullName != null && !request.fullName.isBlank() ? request.fullName : request.username);
+        kcUser.setLastName(" ");
         kcUser.setEnabled(true);
         kcUser.setEmailVerified(true);
         kcUser.setCredentials(Collections.singletonList(credential));
@@ -185,8 +188,9 @@ public class AuthService {
 
     /**
      * Cập nhật thông tin profile:
-     * Chỉ cho phép sửa fullName và phone.
-     * username và email KHÔNG được phép thay đổi qua API này.
+     * 1. Chỉ cho phép sửa fullName và phone.
+     * 2. username và email KHÔNG được phép thay đổi qua API này.
+     * 3. Nếu fullName thay đổi → đồng bộ lên Keycloak (firstName).
      */
     @Transactional
     public AuthDto.UserProfileResponse updateProfile(String keycloakId, AuthDto.UpdateProfileRequest request) {
@@ -195,9 +199,14 @@ public class AuthService {
             throw ServiceException.notFound("User with keycloak_id", 0L);
         }
 
+        boolean fullNameChanged = false;
+
         // Chỉ update những trường được phép
         if (request.fullName != null && !request.fullName.isBlank()) {
-            user.fullName = request.fullName;
+            if (!request.fullName.equals(user.fullName)) {
+                user.fullName = request.fullName;
+                fullNameChanged = true;
+            }
         }
         if (request.phone != null && !request.phone.isBlank()) {
             // Kiểm tra phone không bị trùng với user khác
@@ -209,7 +218,32 @@ public class AuthService {
         }
 
         user.persist();
+
+        // Đồng bộ fullName lên Keycloak nếu thay đổi
+        if (fullNameChanged) {
+            syncFullNameToKeycloak(keycloakId, request.fullName);
+        }
+
+        LOG.infof("Profile updated for user [%s]: fullName=%s, phone=%s",
+                user.username, user.fullName, user.phone);
+
         return toProfileResponse(user);
+    }
+
+    /**
+     * Đồng bộ fullName lên Keycloak (cập nhật firstName).
+     * Nếu thất bại chỉ log warning, không rollback local DB.
+     */
+    private void syncFullNameToKeycloak(String keycloakId, String fullName) {
+        try {
+            UserRepresentation kcUser = keycloakAdmin.realm(realm)
+                    .users().get(keycloakId).toRepresentation();
+            kcUser.setFirstName(fullName);
+            keycloakAdmin.realm(realm).users().get(keycloakId).update(kcUser);
+            LOG.infof("Synced fullName to Keycloak for user [%s]", keycloakId);
+        } catch (Exception e) {
+            LOG.warnf(e, "Failed to sync fullName to Keycloak for user [%s]", keycloakId);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -115,12 +115,12 @@ public class AuthResource {
      */
     @GET
     @Path("/me")
+    @Authenticated
     @Operation(summary = "Lấy thông tin profile của user đang đăng nhập")
     @APIResponse(responseCode = "200", description = "Thông tin profile")
     @APIResponse(responseCode = "401", description = "Chưa xác thực")
     @APIResponse(responseCode = "404", description = "Không tìm thấy profile")
     public Response getProfile() {
-        System.out.println(">>> KEYCLOAK ID NHẬN ĐƯỢC: " + jwt.getSubject());
         String keycloakId = jwt.getSubject();
         AuthDto.UserProfileResponse profile = authService.getProfile(keycloakId, getKeycloakRoles());
         return Response.ok(ApiResponse.success(profile)).build();
@@ -136,6 +136,7 @@ public class AuthResource {
      */
     @PUT
     @Path("/me")
+    @Authenticated
     @Operation(summary = "Cập nhật thông tin cá nhân (fullName, phone)")
     @APIResponse(responseCode = "200", description = "Cập nhật thành công")
     @APIResponse(responseCode = "401", description = "Chưa xác thực")
