@@ -87,4 +87,22 @@ public class AuthDto {
         public String status;
         public String createdAt;
     }
+
+    // ── Admin User DTOs ────────────────────────────────────────────────────────
+    @Data
+    public static class UserDto {
+        public Long id;
+        public String username;
+        public String email;
+        public String fullName;
+        public String phone;
+        public String status;
+        public String createdAt;
+    }
+
+    @Data
+    public static class UserStatusUpdateRequest {
+        @NotBlank(message = "Status is required")
+        public String status; // ACTIVE or INACTIVE
+    }
 }

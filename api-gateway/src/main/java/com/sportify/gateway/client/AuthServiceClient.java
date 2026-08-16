@@ -30,4 +30,19 @@ public interface AuthServiceClient {
     @PUT
     @Path("/me")
     Response updateProfile(@HeaderParam("Authorization") String authorization, Object body);
+
+    // ── Admin User Management (UC16) ─────────────────────────────────────────
+
+    @GET
+    @Path("/admin/users")
+    Response getUsers(@HeaderParam("Authorization") String authorization,
+                      @QueryParam("keyword") String keyword,
+                      @QueryParam("page") Integer page,
+                      @QueryParam("size") Integer size);
+
+    @PATCH
+    @Path("/admin/users/{id}/status")
+    Response updateUserStatus(@HeaderParam("Authorization") String authorization,
+                              @PathParam("id") Long id,
+                              Object body);
 }
