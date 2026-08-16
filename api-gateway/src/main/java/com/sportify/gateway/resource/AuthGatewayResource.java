@@ -65,6 +65,27 @@ public class AuthGatewayResource {
         return forward(() -> authClient.updateProfile(auth, body));
     }
 
+    @GET
+    @Path("/admin/users")
+    @Operation(summary = "Xem danh sách người dùng (Admin)")
+    public Response getUsers(@Context HttpHeaders headers,
+                             @QueryParam("keyword") String keyword,
+                             @QueryParam("page") Integer page,
+                             @QueryParam("size") Integer size) {
+        String auth = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
+        return forward(() -> authClient.getUsers(auth, keyword, page, size));
+    }
+
+    @PATCH
+    @Path("/admin/users/{id}/status")
+    @Operation(summary = "Khóa hoặc kích hoạt tài khoản người dùng (Admin)")
+    public Response updateUserStatus(@PathParam("id") Long id,
+                                     @Context HttpHeaders headers,
+                                     Object body) {
+        String auth = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
+        return forward(() -> authClient.updateUserStatus(auth, id, body));
+    }
+
     private Response forward(Supplier<Response> request) {
         try {
             return request.get();
