@@ -77,15 +77,14 @@ public class BookingScheduler {
         try {
             var paymentResponse = paymentServiceClient.getByBookingId(booking.id);
             if (paymentResponse == null || paymentResponse.getData() == null) {
-                return false;
+                return true;
             }
 
             var payment = paymentResponse.getData();
-            return "VNPAY".equalsIgnoreCase(payment.paymentMethod())
-                    && !"SUCCESS".equalsIgnoreCase(payment.paymentStatus());
+            return !"SUCCESS".equalsIgnoreCase(payment.paymentStatus());
         } catch (Exception e) {
-            LOG.debugf(e, "[AutoCancel] KhÃ´ng láº¥y Ä‘Æ°á»£c payment cho booking #%d, bá» qua.", booking.id);
-            return false;
+            LOG.warnf("[AutoCancel] Không lấy được payment cho booking #%d (lỗi: %s), tiến hành huỷ đơn.", booking.id, e.getMessage());
+            return true;
         }
     }
 }
