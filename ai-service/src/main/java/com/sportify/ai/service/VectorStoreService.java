@@ -8,9 +8,12 @@ import jakarta.inject.Inject;
 import lombok.Data;
 import org.jboss.logging.Logger;
 
+import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 
 @ApplicationScoped
@@ -41,6 +44,8 @@ public class VectorStoreService {
         loadKnowledgeBase();
     }
 
+    private static final String CACHE_FILE = "target/embeddings-cache.json";
+ 
     private void loadKnowledgeBase() {
         try (InputStream is = getClass().getResourceAsStream("/knowledge-base.json")) {
             if (is == null) {
@@ -49,16 +54,39 @@ public class VectorStoreService {
             }
             List<Document> loadedDocs = objectMapper.readValue(is, new TypeReference<List<Document>>() {});
             
+            Map<String, List<Double>> cache = loadCache();
+            boolean hasNewEmbeddings = false;
+ 
             for (Document doc : loadedDocs) {
                 documents.add(doc);
-                try {
-                    String textToEmbed = String.format("Title: %s\nContent: %s", doc.getTitle(), doc.getContent());
-                    float[] embedding = geminiClient.embedContent(textToEmbed);
-                    embeddings.add(embedding);
-                } catch (Exception e) {
-                    LOG.errorf("Failed to embed document: %s. Detail: %s", doc.getId(), e.getMessage());
-                    embeddings.add(null);
+                float[] embedding = null;
+                
+                if (cache.containsKey(doc.getId())) {
+                    List<Double> cachedValues = cache.get(doc.getId());
+                    embedding = new float[cachedValues.size()];
+                    for (int i = 0; i < cachedValues.size(); i++) {
+                        embedding[i] = cachedValues.get(i).floatValue();
+                    }
+                } else {
+                    try {
+                        String textToEmbed = String.format("Title: %s\nContent: %s", doc.getTitle(), doc.getContent());
+                        embedding = geminiClient.embedContent(textToEmbed);
+                        
+                        List<Double> doubleList = new ArrayList<>();
+                        for (float v : embedding) {
+                            doubleList.add((double) v);
+                        }
+                        cache.put(doc.getId(), doubleList);
+                        hasNewEmbeddings = true;
+                    } catch (Exception e) {
+                        LOG.errorf("Failed to embed document: %s. Detail: %s", doc.getId(), e.getMessage());
+                    }
                 }
+                embeddings.add(embedding);
+            }
+            
+            if (hasNewEmbeddings) {
+                saveCache(cache);
             }
             
             isEmbeddingInitialized = embeddings.stream().anyMatch(e -> e != null);
@@ -66,6 +94,30 @@ public class VectorStoreService {
             
         } catch (Exception e) {
             LOG.error("Error loading knowledge base", e);
+        }
+    }
+ 
+    private Map<String, List<Double>> loadCache() {
+        File file = new File(CACHE_FILE);
+        if (!file.exists()) {
+            return new HashMap<>();
+        }
+        try {
+            return objectMapper.readValue(file, new TypeReference<Map<String, List<Double>>>() {});
+        } catch (Exception e) {
+            LOG.warn("Failed to read embeddings cache, will regenerate", e);
+            return new HashMap<>();
+        }
+    }
+ 
+    private void saveCache(Map<String, List<Double>> cache) {
+        try {
+            File file = new File(CACHE_FILE);
+            file.getParentFile().mkdirs();
+            objectMapper.writeValue(file, cache);
+            LOG.info("Saved embeddings cache to " + CACHE_FILE);
+        } catch (Exception e) {
+            LOG.error("Failed to save embeddings cache", e);
         }
     }
 

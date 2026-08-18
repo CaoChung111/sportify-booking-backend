@@ -3,6 +3,7 @@ package com.sportify.booking.resource;
 import com.sportify.booking.dto.BookingDto;
 import com.sportify.booking.service.BookingService;
 import com.sportify.common.dto.ApiResponse;
+import com.sportify.common.dto.PageResponse;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -99,21 +100,43 @@ public class BookingResource {
 
     /**
      * GET /api/v1/bookings
-     * Lấy tất cả đặt sân của user đang đăng nhập, sắp xếp mới nhất trước.
+     * Lấy tất cả đặt sân của user đang đăng nhập (hỗ trợ phân trang và lọc status).
      */
     @GET
-    @Operation(summary = "Lấy lịch sử đặt sân của user đang đăng nhập")
+    @Operation(summary = "Lấy lịch sử đặt sân của user đang đăng nhập (hỗ trợ phân trang và status)")
     @APIResponse(responseCode = "200", description = "Danh sách booking")
-    public Response getMyBookings() {
+    public Response getMyBookings(
+            @QueryParam("status") String status,
+            @QueryParam("page") Integer page,
+            @QueryParam("size") Integer size) {
+
+        if (page != null || size != null || (status != null && !status.isBlank())) {
+            int p = page != null ? page : 0;
+            int s = size != null ? size : 10;
+            PageResponse<BookingDto.BookingResponse> paginated = bookingService.getMyBookingsWithPagination(currentUserId(), status, p, s);
+            return Response.ok(ApiResponse.success(paginated)).build();
+        }
+
         List<BookingDto.BookingResponse> bookings = bookingService.getMyBookings(currentUserId());
         return Response.ok(ApiResponse.success(bookings)).build();
     }
 
     @GET
     @Path("/admin/all")
-    @Operation(summary = "Lấy toàn bộ lịch sử đặt sân (Admin only)")
+    @Operation(summary = "Lấy toàn bộ lịch sử đặt sân (Admin only, hỗ trợ phân trang)")
     @APIResponse(responseCode = "200", description = "Danh sách tất cả booking")
-    public Response getAllBookings() {
+    public Response getAllBookings(
+            @QueryParam("status") String status,
+            @QueryParam("page") Integer page,
+            @QueryParam("size") Integer size) {
+
+        if (page != null || size != null || (status != null && !status.isBlank())) {
+            int p = page != null ? page : 0;
+            int s = size != null ? size : 10;
+            PageResponse<BookingDto.BookingResponse> paginated = bookingService.getAllBookingsWithPagination(status, p, s);
+            return Response.ok(ApiResponse.success(paginated)).build();
+        }
+
         List<BookingDto.BookingResponse> bookings = bookingService.getAllBookings();
         return Response.ok(ApiResponse.success(bookings)).build();
     }

@@ -1,6 +1,7 @@
 package com.sportify.field.resource;
 
 import com.sportify.common.dto.ApiResponse;
+import com.sportify.common.dto.PageResponse;
 import com.sportify.field.dto.FieldTypeDto;
 import com.sportify.field.service.FieldTypeService;
 import jakarta.annotation.security.PermitAll;
@@ -27,14 +28,24 @@ public class FieldTypeResource {
 
     /**
      * GET /api/v1/field-types
-     * Lấy danh sách tất cả FieldType, tuỳ chọn lọc theo sportId.
+     * Lấy danh sách tất cả FieldType, tuỳ chọn lọc theo sportId, keyword và phân trang.
      */
     @GET
     @PermitAll
-    @Operation(summary = "Lấy danh sách FieldType (Public, lọc tuỳ chọn theo sportId)")
+    @Operation(summary = "Lấy danh sách FieldType (Public, lọc theo sportId, keyword, hỗ trợ phân trang)")
     public Response getAll(
             @Parameter(description = "Lọc theo ID môn thể thao")
-            @QueryParam("sportId") Long sportId) {
+            @QueryParam("sportId") Long sportId,
+            @QueryParam("keyword") String keyword,
+            @QueryParam("page") Integer page,
+            @QueryParam("size") Integer size) {
+
+        if (page != null || size != null || (keyword != null && !keyword.isBlank())) {
+            int p = page != null ? page : 0;
+            int s = size != null ? size : 10;
+            PageResponse<FieldTypeDto.FieldTypeResponse> paginated = fieldTypeService.findWithPagination(sportId, keyword, p, s);
+            return Response.ok(ApiResponse.success(paginated)).build();
+        }
 
         List<FieldTypeDto.FieldTypeResponse> list = fieldTypeService.findAll(sportId);
         return Response.ok(ApiResponse.success(list)).build();

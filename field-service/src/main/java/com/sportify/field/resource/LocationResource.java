@@ -1,6 +1,7 @@
 package com.sportify.field.resource;
 
 import com.sportify.common.dto.ApiResponse;
+import com.sportify.common.dto.PageResponse;
 import com.sportify.field.dto.LocationDto;
 import com.sportify.field.service.LocationService;
 import jakarta.annotation.security.PermitAll;
@@ -24,11 +25,22 @@ public class LocationResource {
     @Inject
     LocationService locationService;
 
-    /** GET /api/v1/locations — Lấy danh sách tất cả địa điểm (Public) */
+    /** GET /api/v1/locations — Lấy danh sách địa điểm (hỗ trợ phân trang & lọc theo keyword) */
     @GET
     @PermitAll
-    @Operation(summary = "Lấy danh sách tất cả địa điểm")
-    public Response getAll() {
+    @Operation(summary = "Lấy danh sách địa điểm (hỗ trợ phân trang và tìm kiếm)")
+    public Response getAll(
+            @QueryParam("keyword") String keyword,
+            @QueryParam("page") Integer page,
+            @QueryParam("size") Integer size) {
+
+        if (page != null || size != null || (keyword != null && !keyword.isBlank())) {
+            int p = page != null ? page : 0;
+            int s = size != null ? size : 10;
+            PageResponse<LocationDto.LocationResponse> paginated = locationService.findWithPagination(keyword, p, s);
+            return Response.ok(ApiResponse.success(paginated)).build();
+        }
+
         List<LocationDto.LocationResponse> list = locationService.findAll();
         return Response.ok(ApiResponse.success(list)).build();
     }

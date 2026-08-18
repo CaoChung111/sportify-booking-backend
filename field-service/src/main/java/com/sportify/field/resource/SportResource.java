@@ -1,6 +1,7 @@
 package com.sportify.field.resource;
 
 import com.sportify.common.dto.ApiResponse;
+import com.sportify.common.dto.PageResponse;
 import com.sportify.field.dto.SportDto;
 import com.sportify.field.service.SportService;
 import jakarta.annotation.security.PermitAll;
@@ -24,11 +25,22 @@ public class SportResource {
     @Inject
     SportService sportService;
 
-    /** GET /api/v1/sports — Lấy tất cả môn thể thao (Public) */
+    /** GET /api/v1/sports — Lấy tất cả môn thể thao (hỗ trợ phân trang và lọc keyword) */
     @GET
     @PermitAll
-    @Operation(summary = "Lấy danh sách tất cả môn thể thao")
-    public Response getAll() {
+    @Operation(summary = "Lấy danh sách môn thể thao (hỗ trợ phân trang và tìm kiếm)")
+    public Response getAll(
+            @QueryParam("keyword") String keyword,
+            @QueryParam("page") Integer page,
+            @QueryParam("size") Integer size) {
+
+        if (page != null || size != null || (keyword != null && !keyword.isBlank())) {
+            int p = page != null ? page : 0;
+            int s = size != null ? size : 10;
+            PageResponse<SportDto.SportResponse> paginated = sportService.findWithPagination(keyword, p, s);
+            return Response.ok(ApiResponse.success(paginated)).build();
+        }
+
         List<SportDto.SportResponse> list = sportService.findAll();
         return Response.ok(ApiResponse.success(list)).build();
     }

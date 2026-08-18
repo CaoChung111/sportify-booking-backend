@@ -146,7 +146,7 @@ public class ChatService {
                     if (functionCall.id() != null) {
                         functionResponseData.put("id", functionCall.id());
                     }
-                    functionResponseData.put("response", Map.of("content", functionResult));
+                    functionResponseData.put("response", functionResult);
 
                     Map<String, Object> functionResponsePart = new HashMap<>();
                     functionResponsePart.put("functionResponse", functionResponseData);

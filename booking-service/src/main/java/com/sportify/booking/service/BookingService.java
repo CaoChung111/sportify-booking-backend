@@ -5,7 +5,10 @@ import com.sportify.booking.client.PaymentServiceClient;
 import com.sportify.booking.dto.BookingDto;
 import com.sportify.booking.entity.Booking;
 import com.sportify.booking.resource.BookingSseResource;
+import com.sportify.common.dto.PageResponse;
 import com.sportify.common.exception.ServiceException;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -15,7 +18,9 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -35,10 +40,6 @@ public class BookingService {
 
     // ── Check Availability ───────────────────────────────────────────────────
 
-    /**
-     * Kiểm tra một khung giờ cụ thể có trống hay không.
-     * Nếu không trống, ném ra lỗi 409 Conflict với thông báo chi tiết.
-     */
     public void checkSlotAvailability(Long fieldId, LocalDate date, LocalTime startTime, LocalTime endTime) {
         Optional<Booking> conflict = Booking.findFirstConflict(fieldId, date, startTime, endTime);
         if (conflict.isPresent()) {
@@ -55,52 +56,33 @@ public class BookingService {
 
     // ── Tạo Đơn Đặt Sân ──────────────────────────────────────────────────────
 
-    /**
-     * Luồng tạo booking (Real-time):
-     *
-     * 1. Validate input: endTime > startTime, booking time is in the future
-     * 2. Gọi field-service → kiểm tra sân tồn tại & lấy snapshot
-     * 3. Kiểm tra sân đang AVAILABLE (không bảo trì)
-     * 4. Kiểm tra xung đột lịch trong DB nội bộ (Double Booking Prevention)
-     * 5. Gọi field-service → tính giá (Dynamic Pricing)
-     * 6. Tạo Booking với status = PENDING
-     * 7. Push SSE events (slot-update + new-booking-notification)
-     */
     @Transactional
     public BookingDto.BookingResponse create(Long userId, BookingDto.CreateBookingRequest request) {
-        // Bước 1: Validate thời gian
         if (!request.endTime.isAfter(request.startTime)) {
             throw ServiceException.badRequest("endTime must be after startTime");
         }
         if (request.bookingDate == null) {
             throw ServiceException.badRequest("bookingDate is required");
         }
-        // **LOGIC MỚI:** Nếu đặt cho ngày hôm nay, giờ bắt đầu phải ở trong tương lai
         if (request.bookingDate.isEqual(LocalDate.now()) && request.startTime.isBefore(LocalTime.now())) {
             throw ServiceException.badRequest("Cannot book a time slot that has already passed today");
         }
 
-        // Bước 2: Lấy thông tin sân từ field-service
         var fieldResponse = fieldServiceClient.getField(request.fieldId);
         if (fieldResponse == null || fieldResponse.getData() == null) {
             throw ServiceException.notFound("Field", request.fieldId);
         }
         var fieldDetail = fieldResponse.getData();
 
-        // Bước 3: Kiểm tra trạng thái sân
-        // Gọi API mới của field-service để kiểm tra trạng thái vận hành
         var availResp = fieldServiceClient.checkAvailability(request.fieldId);
         if (availResp == null || !Boolean.TRUE.equals(availResp.getData())) {
             throw ServiceException.badRequest(
                     "Field '" + fieldDetail.name() + "' is currently under maintenance and cannot be booked");
         }
 
-        // Bước 4 — Pessimistic Lock + Kiểm tra xung đột lịch (Double Booking)
         Booking.lockSlot(request.fieldId, request.bookingDate);
         checkSlotAvailability(request.fieldId, request.bookingDate, request.startTime, request.endTime);
 
-
-        // Bước 5: Tính giá
         String dateStr  = request.bookingDate.toString();
         String startStr = request.startTime.toString();
         String endStr   = request.endTime.toString();
@@ -110,7 +92,6 @@ public class BookingService {
         }
         var priceDetail = priceResp.getData();
 
-        // Bước 6: Tạo Booking
         Booking booking       = new Booking();
         booking.userId        = userId;
         booking.fieldId       = request.fieldId;
@@ -126,7 +107,6 @@ public class BookingService {
 
         BookingDto.BookingResponse response = toResponse(booking);
 
-        // Bước 7: SSE — Push slot-update event (slot vừa bị chiếm)
         bookingSseResource.pushSlotUpdate(
                 booking.fieldId,
                 booking.bookingDate,
@@ -134,8 +114,6 @@ public class BookingService {
                 booking.endTime,
                 "PENDING"
         );
-
-        // SSE — Push new-booking-notification tới admin/chủ sân
         bookingSseResource.pushNewBookingNotification(response);
 
         return response;
@@ -149,11 +127,68 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    public PageResponse<BookingDto.BookingResponse> getMyBookingsWithPagination(Long userId, String status, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        StringBuilder hql = new StringBuilder("userId = :userId");
+        Map<String, Object> params = new HashMap<>();
+        params.put("userId", userId);
+
+        if (status != null && !status.isBlank()) {
+            hql.append(" and status = :status");
+            try {
+                params.put("status", Booking.BookingStatus.valueOf(status.toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw ServiceException.badRequest("Invalid status: " + status);
+            }
+        }
+
+        var panacheQuery = Booking.find(hql.toString(), Sort.by("createdAt", Sort.Direction.Descending), params);
+        long totalItems = panacheQuery.count();
+        List<BookingDto.BookingResponse> items = panacheQuery
+                .page(Page.of(safePage, safeSize))
+                .<Booking>list()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(items, safePage, safeSize, totalItems, "createdAt", "desc");
+    }
+
     public List<BookingDto.BookingResponse> getAllBookings() {
         return Booking.listAll().stream()
                 .map(b -> toResponse((Booking) b))
-                .sorted((b1, b2) -> b2.createdAt.compareTo(b1.createdAt)) // Sort descending by createdAt
+                .sorted((b1, b2) -> b2.createdAt.compareTo(b1.createdAt))
                 .collect(Collectors.toList());
+    }
+
+    public PageResponse<BookingDto.BookingResponse> getAllBookingsWithPagination(String status, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        StringBuilder hql = new StringBuilder("1 = 1");
+        Map<String, Object> params = new HashMap<>();
+
+        if (status != null && !status.isBlank()) {
+            hql.append(" and status = :status");
+            try {
+                params.put("status", Booking.BookingStatus.valueOf(status.toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw ServiceException.badRequest("Invalid status: " + status);
+            }
+        }
+
+        var panacheQuery = Booking.find(hql.toString(), Sort.by("createdAt", Sort.Direction.Descending), params);
+        long totalItems = panacheQuery.count();
+        List<BookingDto.BookingResponse> items = panacheQuery
+                .page(Page.of(safePage, safeSize))
+                .<Booking>list()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(items, safePage, safeSize, totalItems, "createdAt", "desc");
     }
 
     public List<BookingDto.BookingResponse> getBookingsByFieldAndDate(Long fieldId, LocalDate date) {
