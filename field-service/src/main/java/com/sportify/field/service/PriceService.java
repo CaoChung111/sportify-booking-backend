@@ -1,16 +1,21 @@
 package com.sportify.field.service;
 
+import com.sportify.common.dto.PageResponse;
 import com.sportify.common.exception.ServiceException;
 import com.sportify.field.dto.PriceDto;
 import com.sportify.field.entity.FieldType;
 import com.sportify.field.entity.Location;
 import com.sportify.field.entity.Price;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -37,6 +42,34 @@ public class PriceService {
         return prices.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    public PageResponse<PriceDto.PriceRuleResponse> findWithPagination(Long locationId, Long fieldTypeId, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        StringBuilder hql = new StringBuilder("1 = 1");
+        Map<String, Object> params = new HashMap<>();
+
+        if (locationId != null) {
+            hql.append(" and location.id = :locationId");
+            params.put("locationId", locationId);
+        }
+        if (fieldTypeId != null) {
+            hql.append(" and fieldType.id = :fieldTypeId");
+            params.put("fieldTypeId", fieldTypeId);
+        }
+
+        var panacheQuery = Price.find(hql.toString(), Sort.by("id", Sort.Direction.Ascending), params);
+        long totalItems = panacheQuery.count();
+        List<PriceDto.PriceRuleResponse> items = panacheQuery
+                .page(Page.of(safePage, safeSize))
+                .<Price>list()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(items, safePage, safeSize, totalItems, "id", "asc");
     }
 
     public PriceDto.PriceRuleResponse findById(Long id) {

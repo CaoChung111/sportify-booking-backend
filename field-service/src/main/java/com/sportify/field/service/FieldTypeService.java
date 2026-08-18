@@ -1,14 +1,19 @@
 package com.sportify.field.service;
 
+import com.sportify.common.dto.PageResponse;
 import com.sportify.common.exception.ServiceException;
 import com.sportify.field.dto.FieldTypeDto;
 import com.sportify.field.entity.Field;
 import com.sportify.field.entity.FieldType;
 import com.sportify.field.entity.Sport;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -27,6 +32,34 @@ public class FieldTypeService {
         return list.stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    public PageResponse<FieldTypeDto.FieldTypeResponse> findWithPagination(Long sportId, String keyword, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        StringBuilder hql = new StringBuilder("1 = 1");
+        Map<String, Object> params = new HashMap<>();
+
+        if (sportId != null) {
+            hql.append(" and sport.id = :sportId");
+            params.put("sportId", sportId);
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            hql.append(" and lower(name) like :keyword");
+            params.put("keyword", "%" + keyword.toLowerCase().trim() + "%");
+        }
+
+        var panacheQuery = FieldType.find(hql.toString(), Sort.by("id", Sort.Direction.Ascending), params);
+        long totalItems = panacheQuery.count();
+        List<FieldTypeDto.FieldTypeResponse> items = panacheQuery
+                .page(Page.of(safePage, safeSize))
+                .<FieldType>list()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(items, safePage, safeSize, totalItems, "id", "asc");
     }
 
     /**

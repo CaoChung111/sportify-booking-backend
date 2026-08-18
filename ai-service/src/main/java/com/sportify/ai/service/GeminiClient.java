@@ -106,7 +106,22 @@ public class GeminiClient {
                     .build();
 
             LOG.infof("Sending request to Gemini: %s", jsonBody);
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            HttpResponse<String> response = null;
+            int retries = 3;
+            long delay = 1000; // 1s base delay
+            
+            for (int i = 0; i < retries; i++) {
+                response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 429) {
+                    LOG.warnf("Gemini API Rate Limited (429). Retrying in %d ms... (Attempt %d/%d)", delay, i + 1, retries);
+                    Thread.sleep(delay);
+                    delay *= 2; // Exponential backoff
+                } else {
+                    break;
+                }
+            }
+            
             LOG.infof("Received response from Gemini: %s", response.body());
             if (response.statusCode() != 200) {
                 LOG.errorf("Gemini API Error: %d - %s", response.statusCode(), response.body());
@@ -178,7 +193,21 @@ public class GeminiClient {
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = null;
+            int retries = 3;
+            long delay = 1000; // 1s base delay
+            
+            for (int i = 0; i < retries; i++) {
+                response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 429) {
+                    LOG.warnf("Gemini Embedding API Rate Limited (429). Retrying in %d ms... (Attempt %d/%d)", delay, i + 1, retries);
+                    Thread.sleep(delay);
+                    delay *= 2; // Exponential backoff
+                } else {
+                    break;
+                }
+            }
+            
             if (response.statusCode() != 200) {
                 LOG.errorf("Gemini Embedding API Error: %d - %s", response.statusCode(), response.body());
                 throw ServiceException.badRequest("Lỗi khi gọi API Embedding");

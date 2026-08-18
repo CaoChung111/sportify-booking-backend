@@ -1,9 +1,12 @@
 package com.sportify.field.service;
 
+import com.sportify.common.dto.PageResponse;
 import com.sportify.common.exception.ServiceException;
 import com.sportify.field.dto.LocationDto;
 import com.sportify.field.entity.Field;
 import com.sportify.field.entity.Location;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
@@ -19,6 +22,26 @@ public class LocationService {
         return Location.<Location>listAll().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    public PageResponse<LocationDto.LocationResponse> findWithPagination(String keyword, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        var query = (keyword != null && !keyword.isBlank())
+                ? Location.find("lower(name) like ?1 or lower(address) like ?1 or lower(region) like ?1",
+                Sort.by("id", Sort.Direction.Ascending), "%" + keyword.toLowerCase().trim() + "%")
+                : Location.findAll(Sort.by("id", Sort.Direction.Ascending));
+
+        long totalItems = query.count();
+        List<LocationDto.LocationResponse> items = query
+                .page(Page.of(safePage, safeSize))
+                .<Location>list()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(items, safePage, safeSize, totalItems, "id", "asc");
     }
 
     public LocationDto.LocationResponse findById(Long id) {

@@ -1,9 +1,12 @@
 package com.sportify.field.service;
 
+import com.sportify.common.dto.PageResponse;
 import com.sportify.common.exception.ServiceException;
 import com.sportify.field.dto.SportDto;
 import com.sportify.field.entity.FieldType;
 import com.sportify.field.entity.Sport;
+import io.quarkus.panache.common.Page;
+import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
@@ -19,6 +22,26 @@ public class SportService {
         return Sport.<Sport>listAll().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    public PageResponse<SportDto.SportResponse> findWithPagination(String keyword, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        var query = (keyword != null && !keyword.isBlank())
+                ? Sport.find("lower(name) like ?1 or lower(slug) like ?1",
+                Sort.by("id", Sort.Direction.Ascending), "%" + keyword.toLowerCase().trim() + "%")
+                : Sport.findAll(Sort.by("id", Sort.Direction.Ascending));
+
+        long totalItems = query.count();
+        List<SportDto.SportResponse> items = query
+                .page(Page.of(safePage, safeSize))
+                .<Sport>list()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(items, safePage, safeSize, totalItems, "id", "asc");
     }
 
     public SportDto.SportResponse findById(Long id) {

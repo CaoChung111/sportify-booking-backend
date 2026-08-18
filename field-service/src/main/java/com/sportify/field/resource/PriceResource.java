@@ -1,6 +1,7 @@
 package com.sportify.field.resource;
 
 import com.sportify.common.dto.ApiResponse;
+import com.sportify.common.dto.PageResponse;
 import com.sportify.field.dto.PriceDto;
 import com.sportify.field.service.PriceService;
 import jakarta.annotation.security.PermitAll;
@@ -26,15 +27,23 @@ public class PriceResource {
 
     /**
      * GET /api/v1/prices
-     * Lấy danh sách quy tắc giá, lọc theo locationId và/hoặc fieldTypeId.
-     * Chỉ Admin mới xem được bảng giá chi tiết (khách hàng chỉ thấy kết quả
-     * tính giá qua endpoint /fields/{id}/price).
+     * Lấy danh sách quy tắc giá, lọc theo locationId và/hoặc fieldTypeId, hỗ trợ phân trang.
      */
     @GET
     @RolesAllowed("ADMIN")
-    @Operation(summary = "Lấy danh sách quy tắc giá (Admin)")
+    @Operation(summary = "Lấy danh sách quy tắc giá (Admin, hỗ trợ phân trang)")
     public Response getAll(@QueryParam("locationId")  Long locationId,
-                           @QueryParam("fieldTypeId") Long fieldTypeId) {
+                           @QueryParam("fieldTypeId") Long fieldTypeId,
+                           @QueryParam("page") Integer page,
+                           @QueryParam("size") Integer size) {
+
+        if (page != null || size != null) {
+            int p = page != null ? page : 0;
+            int s = size != null ? size : 10;
+            PageResponse<PriceDto.PriceRuleResponse> paginated = priceService.findWithPagination(locationId, fieldTypeId, p, s);
+            return Response.ok(ApiResponse.success(paginated)).build();
+        }
+
         List<PriceDto.PriceRuleResponse> list = priceService.findAll(locationId, fieldTypeId);
         return Response.ok(ApiResponse.success(list)).build();
     }
