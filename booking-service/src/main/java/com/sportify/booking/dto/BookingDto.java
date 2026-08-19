@@ -38,6 +38,7 @@ public class BookingDto {
     public static class BookingResponse {
         public Long          id;
         public Long          userId;
+        public String        userName;
         public Long          fieldId;
         public String        fieldName;
         public String        locationName;

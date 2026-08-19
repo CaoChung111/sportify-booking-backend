@@ -28,7 +28,11 @@ public interface BookingServiceClient {
 
     @GET
     @Path("/admin/all")
-    Response getAllBookings(@HeaderParam("Authorization") String authorization);
+    Response getAllBookings(@QueryParam("status") String status,
+                            @QueryParam("search") String search,
+                            @QueryParam("page") Integer page,
+                            @QueryParam("size") Integer size,
+                            @HeaderParam("Authorization") String authorization);
 
     @GET
     @Path("/field/{fieldId}")

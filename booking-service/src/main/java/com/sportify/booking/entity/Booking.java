@@ -32,6 +32,9 @@ public class Booking extends PanacheEntityBase {
     @Column(name = "user_id", nullable = false)
     public Long userId;
 
+    @Column(name = "user_name", length = 100)
+    public String userName;
+
     @Column(name = "field_id", nullable = false)
     public Long fieldId;
 

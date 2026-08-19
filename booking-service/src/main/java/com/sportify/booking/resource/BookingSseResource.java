@@ -2,6 +2,7 @@ package com.sportify.booking.resource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sportify.booking.dto.BookingDto;
+import com.sportify.booking.dto.NotificationDto;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.subscription.MultiEmitter;
 import jakarta.annotation.security.PermitAll;
@@ -124,11 +125,11 @@ public class BookingSseResource {
      * Push new-booking-notification event tới kênh admin (chủ sân).
      * Broadcast tới tất cả admin đang kết nối.
      */
-    public void pushNewBookingNotification(BookingDto.BookingResponse booking) {
+    public void pushNewBookingNotification(NotificationDto notification) {
         if (adminEmitters.isEmpty()) {
             return;
         }
-        String payload = buildNewBookingPayload(booking);
+        String payload = buildNewBookingPayload(notification);
         broadcastToEmitters(adminEmitters, payload);
     }
 
@@ -162,15 +163,15 @@ public class BookingSseResource {
         }
     }
 
-    private String buildNewBookingPayload(BookingDto.BookingResponse booking) {
+    private String buildNewBookingPayload(NotificationDto notification) {
         try {
             Map<String, Object> data = new HashMap<>();
             data.put("event", "new-booking-notification");
-            data.put("booking", booking);
+            data.put("notification", notification);
             return objectMapper.writeValueAsString(data);
         } catch (Exception e) {
-            return "{\"event\":\"new-booking-notification\",\"bookingId\":"
-                    + (booking != null ? booking.id : "null") + "}";
+            return "{\"event\":\"new-booking-notification\",\"notificationId\":"
+                    + (notification != null ? notification.id : "null") + "}";
         }
     }
 

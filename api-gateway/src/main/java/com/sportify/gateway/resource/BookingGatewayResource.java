@@ -61,8 +61,13 @@ public class BookingGatewayResource {
     @GET
     @Path("/admin/all")
     @Operation(summary = "Lấy toàn bộ lịch sử đặt sân (Admin only)")
-    public Response getAllBookings(@Context HttpHeaders headers) {
-        return bookingClient.getAllBookings(headers.getHeaderString(HttpHeaders.AUTHORIZATION));
+    public Response getAllBookings(
+            @QueryParam("status") String status,
+            @QueryParam("search") String search,
+            @QueryParam("page") Integer page,
+            @QueryParam("size") Integer size,
+            @Context HttpHeaders headers) {
+        return bookingClient.getAllBookings(status, search, page, size, headers.getHeaderString(HttpHeaders.AUTHORIZATION));
     }
 
     @GET

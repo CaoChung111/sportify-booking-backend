@@ -57,6 +57,26 @@ public class BookingResource {
         return 1L;
     }
 
+    private String currentUserName() {
+        try {
+            String headerUserName = headers.getHeaderString("X-User-Name");
+            if (headerUserName != null && !headerUserName.isBlank()) {
+                return headerUserName;
+            }
+            Object nameClaim = jwt.getClaim("name");
+            if (nameClaim != null) {
+                return nameClaim.toString();
+            }
+            Object preferredUsername = jwt.getClaim("preferred_username");
+            if (preferredUsername != null) {
+                return preferredUsername.toString();
+            }
+        } catch (Exception e) {
+            // Dev mode: JWT không khả dụng
+        }
+        return "Khách hàng " + currentUserId();
+    }
+
     // ── Check Availability ───────────────────────────────────────────────────
 
     /**
@@ -90,7 +110,7 @@ public class BookingResource {
     @APIResponse(responseCode = "400", description = "Sân đang bảo trì hoặc thông tin không hợp lệ")
     @APIResponse(responseCode = "409", description = "Khung giờ đã được đặt bởi người khác")
     public Response create(@Valid BookingDto.CreateBookingRequest request) {
-        BookingDto.BookingResponse booking = bookingService.create(currentUserId(), request);
+        BookingDto.BookingResponse booking = bookingService.create(currentUserId(), currentUserName(), request);
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.success("Booking created successfully", booking))
                 .build();
@@ -127,13 +147,14 @@ public class BookingResource {
     @APIResponse(responseCode = "200", description = "Danh sách tất cả booking")
     public Response getAllBookings(
             @QueryParam("status") String status,
+            @QueryParam("search") String search,
             @QueryParam("page") Integer page,
             @QueryParam("size") Integer size) {
 
-        if (page != null || size != null || (status != null && !status.isBlank())) {
+        if (page != null || size != null || (status != null && !status.isBlank()) || (search != null && !search.isBlank())) {
             int p = page != null ? page : 0;
             int s = size != null ? size : 10;
-            PageResponse<BookingDto.BookingResponse> paginated = bookingService.getAllBookingsWithPagination(status, p, s);
+            PageResponse<BookingDto.BookingResponse> paginated = bookingService.getAllBookingsWithPagination(status, search, p, s);
             return Response.ok(ApiResponse.success(paginated)).build();
         }
 

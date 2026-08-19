@@ -3,6 +3,7 @@ package com.sportify.booking.service;
 import com.sportify.booking.client.FieldServiceClient;
 import com.sportify.booking.client.PaymentServiceClient;
 import com.sportify.booking.dto.BookingDto;
+import com.sportify.booking.dto.NotificationDto;
 import com.sportify.booking.entity.Booking;
 import com.sportify.booking.resource.BookingSseResource;
 import com.sportify.common.dto.PageResponse;
@@ -38,6 +39,9 @@ public class BookingService {
     @Inject
     BookingSseResource bookingSseResource;
 
+    @Inject
+    NotificationService notificationService;
+
     // ── Check Availability ───────────────────────────────────────────────────
 
     public void checkSlotAvailability(Long fieldId, LocalDate date, LocalTime startTime, LocalTime endTime) {
@@ -57,7 +61,7 @@ public class BookingService {
     // ── Tạo Đơn Đặt Sân ──────────────────────────────────────────────────────
 
     @Transactional
-    public BookingDto.BookingResponse create(Long userId, BookingDto.CreateBookingRequest request) {
+    public BookingDto.BookingResponse create(Long userId, String userName, BookingDto.CreateBookingRequest request) {
         if (!request.endTime.isAfter(request.startTime)) {
             throw ServiceException.badRequest("endTime must be after startTime");
         }
@@ -94,6 +98,7 @@ public class BookingService {
 
         Booking booking       = new Booking();
         booking.userId        = userId;
+        booking.userName      = userName;
         booking.fieldId       = request.fieldId;
         booking.fieldName     = fieldDetail.name();
         booking.locationName  = fieldDetail.locationName();
@@ -114,7 +119,7 @@ public class BookingService {
                 booking.endTime,
                 "PENDING"
         );
-        bookingSseResource.pushNewBookingNotification(response);
+        
 
         return response;
     }
@@ -163,7 +168,7 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
-    public PageResponse<BookingDto.BookingResponse> getAllBookingsWithPagination(String status, int page, int size) {
+    public PageResponse<BookingDto.BookingResponse> getAllBookingsWithPagination(String status, String search, int page, int size) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
 
@@ -177,6 +182,12 @@ public class BookingService {
             } catch (IllegalArgumentException e) {
                 throw ServiceException.badRequest("Invalid status: " + status);
             }
+        }
+        
+        if (search != null && !search.isBlank()) {
+            hql.append(" and (lower(fieldName) like :search or cast(id as string) = :exactSearch or cast(userId as string) = :exactSearch)");
+            params.put("search", "%" + search.toLowerCase() + "%");
+            params.put("exactSearch", search.trim());
         }
 
         var panacheQuery = Booking.find(hql.toString(), Sort.by("createdAt", Sort.Direction.Descending), params);
@@ -300,10 +311,16 @@ public class BookingService {
             throw ServiceException.badRequest(
                     "Booking cannot be confirmed: current status is " + booking.status);
         }
+        
+        boolean needsNotification = (booking.status == Booking.BookingStatus.PENDING || booking.status == Booking.BookingStatus.CASH_PENDING_PAYMENT);
 
         booking.status = Booking.BookingStatus.CONFIRMED;
         booking.persist();
         confirmPaymentIfNeeded(booking.id);
+
+        if (needsNotification) {
+            sendPaymentSuccessNotification(booking);
+        }
     }
 
     // ── Hoàn thành Booking (cập nhật sau khi chơi xong) ──────────────────────
@@ -340,6 +357,8 @@ public class BookingService {
 
         booking.status = Booking.BookingStatus.PAID_PENDING_CONFIRMATION;
         booking.persist();
+        
+        sendPaymentSuccessNotification(booking);
     }
 
     @Transactional
@@ -386,12 +405,23 @@ public class BookingService {
         return toResponse(booking);
     }
 
+    private void sendPaymentSuccessNotification(Booking booking) {
+        String title = "Thanh toán đặt sân thành công!";
+        String message = String.format("Khách hàng %s với mã đặt sân là %d đã thanh toán thành công đơn đặt sân %s (thuộc %s) vào lúc %s ngày %s. Giá trị: %,.0f VNĐ.",
+                booking.userName != null ? booking.userName : ("(ID " + booking.userId + ")"),
+                booking.id, booking.fieldName, booking.locationName, booking.startTime.toString(), booking.bookingDate.toString(), booking.totalPrice);
+        NotificationDto notification = notificationService.createNotification(title, message, "PAYMENT_SUCCESS", null, booking.id);
+        
+        bookingSseResource.pushNewBookingNotification(notification);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private BookingDto.BookingResponse toResponse(Booking b) {
         BookingDto.BookingResponse r = new BookingDto.BookingResponse();
         r.id            = b.id;
         r.userId        = b.userId;
+        r.userName      = b.userName;
         r.fieldId       = b.fieldId;
         r.fieldName     = b.fieldName;
         r.locationName  = b.locationName;
