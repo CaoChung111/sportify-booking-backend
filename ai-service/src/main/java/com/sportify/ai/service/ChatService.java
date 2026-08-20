@@ -129,7 +129,7 @@ public class ChatService {
 
             int iteration = 0;
             // Handle multiple function calls (including parallel calls)
-            while (response.hasFunctionCalls() && iteration < 3) {
+            while (response.hasFunctionCalls() && iteration < 6) {
                 iteration++;
                 List<GeminiClient.FunctionCallInfo> functionCalls = response.functionCalls();
                 

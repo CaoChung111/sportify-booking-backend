@@ -141,11 +141,21 @@ public class BookingService {
         params.put("userId", userId);
 
         if (status != null && !status.isBlank()) {
-            hql.append(" and status = :status");
-            try {
-                params.put("status", Booking.BookingStatus.valueOf(status.toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                throw ServiceException.badRequest("Invalid status: " + status);
+            String upperStatus = status.trim().toUpperCase();
+            if ("PENDING".equals(upperStatus)) {
+                hql.append(" and status in (:pendingStatuses)");
+                params.put("pendingStatuses", List.of(
+                        Booking.BookingStatus.PENDING,
+                        Booking.BookingStatus.CASH_PENDING_PAYMENT,
+                        Booking.BookingStatus.PAID_PENDING_CONFIRMATION
+                ));
+            } else {
+                hql.append(" and status = :status");
+                try {
+                    params.put("status", Booking.BookingStatus.valueOf(upperStatus));
+                } catch (IllegalArgumentException e) {
+                    throw ServiceException.badRequest("Invalid status: " + status);
+                }
             }
         }
 
@@ -176,11 +186,21 @@ public class BookingService {
         Map<String, Object> params = new HashMap<>();
 
         if (status != null && !status.isBlank()) {
-            hql.append(" and status = :status");
-            try {
-                params.put("status", Booking.BookingStatus.valueOf(status.toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                throw ServiceException.badRequest("Invalid status: " + status);
+            String upperStatus = status.trim().toUpperCase();
+            if ("PENDING".equals(upperStatus)) {
+                hql.append(" and status in (:pendingStatuses)");
+                params.put("pendingStatuses", List.of(
+                        Booking.BookingStatus.PENDING,
+                        Booking.BookingStatus.CASH_PENDING_PAYMENT,
+                        Booking.BookingStatus.PAID_PENDING_CONFIRMATION
+                ));
+            } else {
+                hql.append(" and status = :status");
+                try {
+                    params.put("status", Booking.BookingStatus.valueOf(upperStatus));
+                } catch (IllegalArgumentException e) {
+                    throw ServiceException.badRequest("Invalid status: " + status);
+                }
             }
         }
         
@@ -384,9 +404,11 @@ public class BookingService {
         Booking booking = Booking.findById(id);
         if (booking == null) throw ServiceException.notFound("Booking", id);
 
-        if (booking.status != Booking.BookingStatus.CONFIRMED) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalTime now = java.time.LocalTime.now();
+        if (booking.bookingDate.isAfter(today) || (booking.bookingDate.isEqual(today) && booking.startTime.isAfter(now))) {
             throw ServiceException.badRequest(
-                    "Only CONFIRMED bookings can be marked as completed");
+                    "Chưa đến giờ chơi của đơn đặt này. Chỉ có thể hoàn thành khi trận đấu đã bắt đầu hoặc kết thúc.");
         }
 
         booking.status = Booking.BookingStatus.COMPLETED;

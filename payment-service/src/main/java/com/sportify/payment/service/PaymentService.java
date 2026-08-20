@@ -74,14 +74,13 @@ public class PaymentService {
 
         if (!"PENDING".equalsIgnoreCase(booking.status())) {
             throw ServiceException.badRequest(
-                    "Booking is not in PENDING state. Current status: " + booking.status() +
-                    ". Only PENDING bookings can be paid.");
+                    "Đơn đặt sân #" + request.bookingId + " không ở trạng thái chờ thanh toán (Trạng thái hiện tại: " + booking.status() + ").");
         }
 
         // Bước 2: Chống thanh toán đúp
         Payment existing = Payment.findByBookingId(request.bookingId);
         if (existing != null && existing.paymentStatus == Payment.PaymentStatus.SUCCESS) {
-            throw ServiceException.conflict("Booking #" + request.bookingId + " has already been paid successfully");
+            throw ServiceException.conflict("Đơn đặt sân #" + request.bookingId + " đã được thanh toán thành công trước đó.");
         }
         // Nếu có payment cũ bị FAILED → cho phép tạo mới (retry payment)
         if (existing != null) {

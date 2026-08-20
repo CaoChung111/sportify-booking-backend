@@ -73,6 +73,35 @@ public class BookingScheduler {
         LOG.infof("[AutoCancel] Hoàn thành — đã huỷ %d booking.", expired.size());
     }
 
+    /**
+     * Chạy mỗi 5 phút.
+     * Tự động quét và chuyển trạng thái các đơn CONFIRMED đã qua hết khung giờ chơi sang COMPLETED.
+     */
+    @Scheduled(every = "5m", identity = "booking-auto-complete")
+    @Transactional
+    public void autoCompletePastBookings() {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalTime now = java.time.LocalTime.now();
+
+        List<Booking> pastConfirmed = Booking.find(
+                "status = ?1 AND (bookingDate < ?2 OR (bookingDate = ?2 AND endTime <= ?3))",
+                Booking.BookingStatus.CONFIRMED, today, now
+        ).list();
+
+        if (pastConfirmed.isEmpty()) {
+            return;
+        }
+
+        LOG.infof("[AutoComplete] Tìm thấy %d booking CONFIRMED đã hết giờ chơi. Đang chuyển sang COMPLETED...", pastConfirmed.size());
+
+        for (Booking booking : pastConfirmed) {
+            booking.status = Booking.BookingStatus.COMPLETED;
+            booking.persist();
+            LOG.debugf("[AutoComplete] Đã tự động hoàn thành booking #%d (date=%s, slot=%s-%s)",
+                    booking.id, booking.bookingDate, booking.startTime, booking.endTime);
+        }
+    }
+
     private boolean shouldCancelExpiredBooking(Booking booking) {
         try {
             var paymentResponse = paymentServiceClient.getByBookingId(booking.id);
