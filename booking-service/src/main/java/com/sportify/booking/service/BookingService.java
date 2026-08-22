@@ -102,6 +102,7 @@ public class BookingService {
         booking.fieldId       = request.fieldId;
         booking.fieldName     = fieldDetail.name();
         booking.locationName  = fieldDetail.locationName();
+        booking.sportName     = fieldDetail.sportName();
         booking.bookingDate   = request.bookingDate;
         booking.startTime     = request.startTime;
         booking.endTime       = request.endTime;
@@ -447,6 +448,7 @@ public class BookingService {
         r.fieldId       = b.fieldId;
         r.fieldName     = b.fieldName;
         r.locationName  = b.locationName;
+        r.sportName     = b.sportName;
         r.bookingDate   = b.bookingDate;
         r.startTime     = b.startTime;
         r.endTime       = b.endTime;

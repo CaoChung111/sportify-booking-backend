@@ -45,6 +45,9 @@ public class Booking extends PanacheEntityBase {
     @Column(name = "location_name", nullable = false, length = 100)
     public String locationName;
 
+    @Column(name = "sport_name", length = 100)
+    public String sportName;
+
     // ── Booking info ───────────────────────────────────────────────────────────
     @Column(name = "booking_date", nullable = false)
     public LocalDate bookingDate;

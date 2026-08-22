@@ -1,0 +1,1 @@
+ALTER TABLE bookings ADD COLUMN sport_name VARCHAR(100);

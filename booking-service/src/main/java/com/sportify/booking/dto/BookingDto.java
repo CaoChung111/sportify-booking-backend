@@ -42,6 +42,7 @@ public class BookingDto {
         public Long          fieldId;
         public String        fieldName;
         public String        locationName;
+        public String        sportName;
         public LocalDate     bookingDate;
         public LocalTime     startTime;
         public LocalTime     endTime;
