@@ -1,8 +1,9 @@
 -- booking-service: V1__init_booking.sql
 CREATE TABLE bookings (
-                          id            BIGINT AUTO_INCREMENT PRIMARY KEY,
-                          user_id       BIGINT         NOT NULL,             -- ID reference, no FK (cross-service)
-                          field_id      BIGINT         NOT NULL,             -- ID reference, no FK (cross-service)
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id       BIGINT         NOT NULL,             -- ID reference, no FK (cross-service)
+    user_name     VARCHAR(100),                        -- snapshot tên khách hàng
+    field_id      BIGINT         NOT NULL,             -- ID reference, no FK (cross-service)
                           field_name    VARCHAR(100)   NOT NULL,             -- snapshot tên sân tại thời điểm đặt
                           location_name VARCHAR(100)   NOT NULL,             -- snapshot tên địa điểm
                           booking_date  DATE           NOT NULL,

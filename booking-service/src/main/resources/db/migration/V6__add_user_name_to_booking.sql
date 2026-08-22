@@ -1,1 +1,2 @@
-ALTER TABLE bookings ADD COLUMN user_name VARCHAR(100);
+ALTER TABLE bookings MODIFY COLUMN user_name VARCHAR(100);
+
